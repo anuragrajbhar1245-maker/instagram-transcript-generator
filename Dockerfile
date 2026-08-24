@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive \
     PORT=10000 \
     HOST=0.0.0.0 \
-    WHISPER_MODEL=tiny
+    WHISPER_MODEL=base
 
 # Install system dependencies (FFmpeg is required for audio extraction)
 RUN apt-get update && apt-get install -y --no-install-recommends \

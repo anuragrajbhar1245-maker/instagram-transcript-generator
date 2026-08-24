@@ -147,16 +147,26 @@ class Transcriber:
         model = get_whisper_model(chosen_model)
 
         logger.info(f"Processing audio with local Whisper ({chosen_model}, target_task={task}, lang={language})...")
-        # Always perform verbatim transcription first to get pure native language text
+        # Add contextual priming prompt for high Hindi & Indian language accuracy
+        prompt = None
+        if language == "hi":
+            prompt = "नमस्ते, यह हिंदी में बातचीत है। इसमें हिंदी और सामान्य शब्द शामिल हैं।"
+        elif not language or language == "auto":
+            prompt = "नमस्ते, Hello, this is a clear video transcript."
+
         segments_gen, info = model.transcribe(
             audio_path,
-            beam_size=1,
-            best_of=1,
+            beam_size=2,
+            best_of=2,
             temperature=0.0,
             language=language if language and language != "auto" else None,
             task="transcribe",
+            initial_prompt=prompt,
+            condition_on_previous_text=False,
             vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=400),
+            vad_parameters=dict(min_silence_duration_ms=300),
+            no_speech_threshold=0.6,
+            compression_ratio_threshold=2.4,
             word_timestamps=False
         )
 

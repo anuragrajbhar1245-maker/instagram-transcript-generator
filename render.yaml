@@ -11,4 +11,4 @@ services:
       - key: HOST
         value: 0.0.0.0
       - key: WHISPER_MODEL
-        value: tiny
+        value: base
