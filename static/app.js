@@ -335,9 +335,17 @@ function formatTime(seconds) {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
+let isProcessing = false;
+
 // URL Form Submission
 async function handleTranscribeUrl(e) {
-  if (e) e.preventDefault();
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  
+  if (isProcessing) return;
+
   const rawUrl = urlInput.value.trim();
   if (!rawUrl) {
     urlInput.focus();
@@ -346,17 +354,20 @@ async function handleTranscribeUrl(e) {
     return;
   }
 
+  isProcessing = true;
   errorAlert.classList.add("hidden");
   resultsSection.classList.add("hidden");
   progressSection.classList.remove("hidden");
+  
   submitBtn.disabled = true;
   submitBtn.classList.add("opacity-70");
+  submitBtn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> <span>Processing...</span>`;
 
   startTimer();
   updateStep(1);
 
-  const isTranslateToEnglish = translateToEnglishCheckbox.checked;
-  const chosenLang = quickLanguageSelect.value;
+  const isTranslateToEnglish = translateToEnglishCheckbox ? translateToEnglishCheckbox.checked : false;
+  const chosenLang = quickLanguageSelect ? quickLanguageSelect.value : "auto";
 
   const payload = {
     url: rawUrl,
@@ -394,7 +405,9 @@ async function handleTranscribeUrl(e) {
       saveToHistory(data);
       submitBtn.disabled = false;
       submitBtn.classList.remove("opacity-70");
-    }, 500);
+      submitBtn.innerHTML = `<i class="ph-bold ph-sparkle text-lg"></i> <span>Generate Transcript</span>`;
+      isProcessing = false;
+    }, 400);
 
   } catch (err) {
     if (stepTimeout) clearTimeout(stepTimeout);
@@ -402,22 +415,18 @@ async function handleTranscribeUrl(e) {
     progressSection.classList.add("hidden");
     submitBtn.disabled = false;
     submitBtn.classList.remove("opacity-70");
+    submitBtn.innerHTML = `<i class="ph-bold ph-sparkle text-lg"></i> <span>Generate Transcript</span>`;
+    isProcessing = false;
+    
     errorMessage.textContent = err.message || "Failed to process the Instagram link.";
     errorAlert.classList.remove("hidden");
     errorAlert.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 }
 
-transcribeForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  handleTranscribeUrl(e);
-});
-
-submitBtn.addEventListener("click", (e) => {
-  e.preventDefault();
-  handleTranscribeUrl(e);
-});
-
+// Bind single submission entry points
+transcribeForm.addEventListener("submit", handleTranscribeUrl);
+submitBtn.addEventListener("click", handleTranscribeUrl);
 urlInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
