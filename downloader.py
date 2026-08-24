@@ -2,6 +2,7 @@ import os
 import re
 import uuid
 import logging
+import subprocess
 from typing import Dict, Any, Optional, Tuple
 from pathlib import Path
 import yt_dlp
@@ -56,7 +57,7 @@ class InstagramDownloader:
             cookies_file.write_text(env_cookies_text, encoding="utf-8")
             self.cookies_path = str(cookies_file)
 
-    def get_ydl_opts(self, output_template: str, extract_audio_only: bool = True, custom_cookies: Optional[str] = None) -> Dict[str, Any]:
+    def get_ydl_opts(self, output_template: str, custom_cookies: Optional[str] = None) -> Dict[str, Any]:
         """Returns configured yt-dlp options with Instagram web app authentication headers."""
         headers = {
             "User-Agent": (
@@ -81,7 +82,7 @@ class InstagramDownloader:
             "no_warnings": True,
             "ignoreerrors": False,
             "noplaylist": True,
-            "format": "bestaudio/best",
+            "format": "bestaudio/bestvideo+bestaudio/best",
             "http_headers": headers,
             "extractor_args": {
                 "instagram": {
@@ -93,26 +94,19 @@ class InstagramDownloader:
         if self.cookies_path and os.path.exists(self.cookies_path):
             opts["cookiefile"] = self.cookies_path
 
-        if extract_audio_only:
-            opts["postprocessors"] = [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": AUDIO_CODEC,
-                "preferredquality": AUDIO_BITRATE.replace("k", ""),
-            }]
-
         return opts
 
     def download_audio(self, url: str, cookies: Optional[str] = None) -> Tuple[str, Dict[str, Any]]:
         """
-        Downloads audio from the Instagram URL.
+        Downloads media and converts audio from the Instagram URL.
         Returns (audio_filepath, metadata_dict).
         """
         clean_url = normalize_instagram_url(url)
         task_id = str(uuid.uuid4())
-        output_template = str(self.output_dir / f"{task_id}.%(ext)s")
+        raw_output_template = str(self.output_dir / f"{task_id}_raw.%(ext)s")
         expected_audio_path = str(self.output_dir / f"{task_id}.{AUDIO_CODEC}")
 
-        ydl_opts = self.get_ydl_opts(output_template, extract_audio_only=True, custom_cookies=cookies)
+        ydl_opts = self.get_ydl_opts(raw_output_template, custom_cookies=cookies)
 
         logger.info(f"Downloading Instagram media from: {clean_url}")
         try:
@@ -120,23 +114,65 @@ class InstagramDownloader:
                 info = ydl.extract_info(clean_url, download=True)
                 if not info:
                     raise ValueError("Failed to download media from the provided Instagram URL.")
+                
+                # Check if all formats have no audio
+                formats = info.get("formats", [])
+                has_audio = any(f.get("acodec") not in [None, "none", ""] for f in formats)
+                if formats and not has_audio and info.get("acodec") in [None, "none", ""]:
+                    raise ValueError(
+                        "This Instagram Reel/Video does not have any audio track (it is silent or muted). "
+                        "Please provide an Instagram video that contains speech or sound."
+                    )
+
+                raw_downloaded_file = ydl.prepare_filename(info)
         except Exception as e:
             err_msg = str(e)
+            if "unable to obtain file audio codec" in err_msg or "silent" in err_msg.lower():
+                raise ValueError(
+                    "This Instagram Reel/Video has no audio track (it is completely silent). "
+                    "Please test with a video that has audio or speech."
+                ) from e
             if "HTTP Error 429" in err_msg or "rate-limit" in err_msg.lower():
                 raise RuntimeError(
                     "Instagram is rate-limiting cloud requests (HTTP 429). "
-                    "Please paste your Instagram cookie in Settings (gear icon), "
-                    "or upload the audio/video file using the Upload File tab."
+                    "You can upload the audio/video file directly using the Upload File tab."
                 ) from e
             raise
 
-        # If postprocessor converted it, expected_audio_path should exist
-        if not os.path.exists(expected_audio_path):
-            for ext in ["mp3", "m4a", "aac", "wav", "webm", "mp4"]:
-                alt_path = str(self.output_dir / f"{task_id}.{ext}")
+        # Convert downloaded media to standardized audio using direct FFmpeg
+        if not os.path.exists(raw_downloaded_file):
+            # Check for alternative extensions
+            for ext in ["mp4", "webm", "m4a", "mp3", "mov", "mkv"]:
+                alt_path = str(self.output_dir / f"{task_id}_raw.{ext}")
                 if os.path.exists(alt_path):
-                    expected_audio_path = alt_path
+                    raw_downloaded_file = alt_path
                     break
+
+        if not os.path.exists(raw_downloaded_file):
+            raise FileNotFoundError(f"Could not locate downloaded media file for task {task_id}")
+
+        # Run direct FFmpeg extraction to MP3 (16kHz mono)
+        ffmpeg_cmd = [
+            "ffmpeg", "-y", "-i", str(raw_downloaded_file),
+            "-vn", "-ar", str(AUDIO_SAMPLE_RATE), "-ac", "1", "-b:a", AUDIO_BITRATE,
+            str(expected_audio_path)
+        ]
+        res = subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        
+        # Check if FFmpeg succeeded in producing the audio
+        if not os.path.exists(expected_audio_path) or os.path.getsize(expected_audio_path) == 0:
+            if "does not contain any stream" in res.stderr or "Output file is empty" in res.stderr or res.returncode != 0:
+                raise ValueError(
+                    "This Instagram Reel does not contain an audio track (it is silent). "
+                    "Please provide a video with spoken words or audio."
+                )
+
+        # Cleanup raw video file to save disk space
+        try:
+            if os.path.exists(raw_downloaded_file):
+                os.remove(raw_downloaded_file)
+        except Exception:
+            pass
 
         metadata = {
             "task_id": task_id,
