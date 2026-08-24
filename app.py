@@ -90,22 +90,28 @@ async def transcribe_instagram(req: TranscribeRequest):
         audio_path, metadata = downloader.download_audio(url, cookies=req.cookies)
         task_id = metadata["task_id"]
 
-        # Step 2: Transcribe
-        if req.engine == "groq" and req.api_key:
+        # Step 2: Transcribe (Auto-use Groq Cloud if available for instant sub-second speed)
+        active_groq_key = req.api_key if (req.engine == "groq" and req.api_key) else os.getenv("GROQ_API_KEY")
+        active_openai_key = req.api_key if (req.engine == "openai" and req.api_key) else os.getenv("OPENAI_API_KEY")
+
+        if active_groq_key:
+            logger.info("Using ultra-fast Groq Whisper-large-v3 cloud engine...")
             trans_result = transcriber.transcribe_groq(
                 audio_path,
-                api_key=req.api_key,
+                api_key=active_groq_key,
                 language=req.language,
                 task=req.task
             )
-        elif req.engine == "openai" and req.api_key:
+        elif active_openai_key:
+            logger.info("Using OpenAI Whisper-1 cloud engine...")
             trans_result = transcriber.transcribe_openai(
                 audio_path,
-                api_key=req.api_key,
+                api_key=active_openai_key,
                 language=req.language,
                 task=req.task
             )
         else:
+            logger.info("Using local Faster-Whisper CPU engine...")
             trans_result = transcriber.transcribe_local(
                 audio_path,
                 model_size=req.model_size,
@@ -227,11 +233,17 @@ async def upload_and_transcribe(
         }
 
         # Transcribe
-        if engine == "groq" and api_key:
-            trans_result = transcriber.transcribe_groq(str(audio_file_path), api_key=api_key, language=language, task=task)
-        elif engine == "openai" and api_key:
-            trans_result = transcriber.transcribe_openai(str(audio_file_path), api_key=api_key, language=language, task=task)
+        active_groq_key = api_key if (engine == "groq" and api_key) else os.getenv("GROQ_API_KEY")
+        active_openai_key = api_key if (engine == "openai" and api_key) else os.getenv("OPENAI_API_KEY")
+
+        if active_groq_key:
+            logger.info("Using ultra-fast Groq Whisper-large-v3 cloud engine for uploaded file...")
+            trans_result = transcriber.transcribe_groq(str(audio_file_path), api_key=active_groq_key, language=language, task=task)
+        elif active_openai_key:
+            logger.info("Using OpenAI Whisper-1 cloud engine for uploaded file...")
+            trans_result = transcriber.transcribe_openai(str(audio_file_path), api_key=active_openai_key, language=language, task=task)
         else:
+            logger.info("Using local Faster-Whisper CPU engine for uploaded file...")
             trans_result = transcriber.transcribe_local(str(audio_file_path), model_size=model_size, language=language, task=task)
 
         # Translation

@@ -15,7 +15,9 @@ DEFAULT_WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
 DEFAULT_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")
 DEFAULT_COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
 
-# Server Configuration
+# Optional Cloud API Keys (for instant sub-second transcription)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", 8000))
 

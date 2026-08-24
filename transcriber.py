@@ -236,8 +236,8 @@ class Transcriber:
         if not os.path.exists(audio_path):
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-        endpoint = "translations" if task == "translate" else "transcriptions"
-        url = f"https://api.groq.com/openai/v1/audio/{endpoint}"
+        # Transcribe verbatim with Groq Whisper Large V3
+        url = "https://api.groq.com/openai/v1/audio/transcriptions"
         headers = {"Authorization": f"Bearer {api_key}"}
 
         with open(audio_path, "rb") as f:
@@ -246,7 +246,7 @@ class Transcriber:
                 "model": "whisper-large-v3",
                 "response_format": "verbose_json"
             }
-            if language and language != "auto" and task == "transcribe":
+            if language and language != "auto":
                 data["language"] = language
 
             response = requests.post(url, headers=headers, files=files, data=data, timeout=60)
@@ -264,17 +264,29 @@ class Transcriber:
                 "text": seg.get("text", "").strip()
             })
 
-        det_lang = "en" if task == "translate" else res_json.get("language", "auto")
-        return {
+        det_lang = res_json.get("language", "auto")
+        full_text = res_json.get("text", "").strip()
+
+        result = {
             "engine": "groq_api",
             "model": "whisper-large-v3",
             "task": task,
             "detected_language": det_lang,
             "language_name": SUPPORTED_LANGUAGES.get(det_lang, det_lang.upper()),
             "duration": round(res_json.get("duration", 0), 2),
-            "full_text": res_json.get("text", "").strip(),
+            "full_text": full_text,
             "segments": segments
         }
+
+        # If translation to English was requested and audio is non-English
+        if task == "translate" and det_lang != "en":
+            logger.info(f"Groq: Applying high-accuracy neural translation from {det_lang} to en...")
+            result["translated_segments"] = translate_segments(segments, target_lang="en", source_lang=det_lang)
+            result["translated_full_text"] = translate_text(full_text, target_lang="en", source_lang=det_lang)
+            result["target_language"] = "en"
+            result["target_language_name"] = "English"
+
+        return result
 
     def transcribe_openai(
         self,
