@@ -64,6 +64,14 @@ const exportMenu = document.getElementById("exportMenu");
 const instantTranslateSelect = document.getElementById("instantTranslateSelect");
 const instantTranslateBtn = document.getElementById("instantTranslateBtn");
 
+const languageToggleContainer = document.getElementById("languageToggleContainer");
+const toggleOriginalBtn = document.getElementById("toggleOriginalBtn");
+const toggleTranslatedBtn = document.getElementById("toggleTranslatedBtn");
+const origLangLabel = document.getElementById("origLangLabel");
+const origLangFlag = document.getElementById("origLangFlag");
+
+let activeLanguageView = "original";
+
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsModal = document.getElementById("settingsModal");
 const closeSettingsBtn = document.getElementById("closeSettingsBtn");
@@ -470,12 +478,69 @@ instantTranslateBtn.addEventListener("click", async () => {
   }
 });
 
+// Toggle Original vs Translated Language Views
+toggleOriginalBtn.addEventListener("click", () => {
+  if (!currentTaskData) return;
+  activeLanguageView = "original";
+  updateLanguageViewButtons();
+  renderSegmentsAndView();
+});
+
+toggleTranslatedBtn.addEventListener("click", async () => {
+  if (!currentTaskData) return;
+  activeLanguageView = "translated";
+  
+  // If translation does not exist yet, trigger English translation automatically
+  const trans = currentTaskData.transcription || {};
+  if (!trans.translated_segments || trans.translated_segments.length === 0) {
+    toggleTranslatedBtn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Translating...`;
+    try {
+      const response = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task_id: currentTaskData.task_id,
+          target_language: "en"
+        })
+      });
+      if (response.ok) {
+        const transData = await response.json();
+        currentTaskData.transcription.translated_segments = transData.translated_segments;
+        currentTaskData.transcription.translated_full_text = transData.translated_full_text;
+        currentTaskData.transcription.target_language = "en";
+        currentTaskData.transcription.target_language_name = "English";
+      }
+    } catch (e) {
+      console.error("Translation error:", e);
+    }
+  }
+
+  updateLanguageViewButtons();
+  renderSegmentsAndView();
+});
+
+function updateLanguageViewButtons() {
+  const trans = currentTaskData?.transcription || {};
+  const isOrig = activeLanguageView === "original";
+  
+  toggleOriginalBtn.className = isOrig 
+    ? "px-2.5 py-1 rounded-lg bg-rose-600 text-white font-medium flex items-center gap-1 transition-all"
+    : "px-2.5 py-1 rounded-lg text-slate-400 hover:text-white font-medium flex items-center gap-1 transition-all";
+
+  toggleTranslatedBtn.className = !isOrig 
+    ? "px-2.5 py-1 rounded-lg bg-rose-600 text-white font-medium flex items-center gap-1 transition-all"
+    : "px-2.5 py-1 rounded-lg text-slate-400 hover:text-white font-medium flex items-center gap-1 transition-all";
+  
+  toggleTranslatedBtn.innerHTML = `<span>🇬🇧 English</span>`;
+}
+
 // Render Results
 function renderResults(data) {
   currentTaskData = data;
   const meta = data.metadata || {};
   const trans = data.transcription || {};
-  const activeSegments = trans.translated_segments || trans.segments || [];
+  const detectedCode = trans.detected_language || "en";
+  const isNonEnglish = detectedCode !== "en" && detectedCode !== "auto";
 
   reelThumbnail.src = meta.thumbnail || "";
   reelThumbnail.onerror = () => { reelThumbnail.style.display = "none"; };
@@ -491,23 +556,62 @@ function renderResults(data) {
 
   durationBadge.textContent = meta.duration_formatted || formatTime(trans.duration || 0);
 
-  const lang = (trans.detected_language || "auto").toUpperCase();
+  const lang = detectedCode.toUpperCase();
   const langName = trans.language_name || lang;
   const langProb = trans.language_probability ? ` (${Math.round(trans.language_probability * 100)}%)` : "";
   langBadge.textContent = `${langName}${langProb}`;
 
-  if (trans.target_language) {
-    targetLangBadge.textContent = `→ ${trans.target_language_name || trans.target_language.toUpperCase()}`;
-    targetLangBadge.classList.remove("hidden");
-  } else if (trans.task === "translate") {
-    targetLangBadge.textContent = `→ English (Direct)`;
-    targetLangBadge.classList.remove("hidden");
+  // Configure Language Toggle Bar
+  if (origLangLabel) origLangLabel.textContent = langName;
+  if (origLangFlag) origLangFlag.textContent = detectedCode === "hi" ? "🇮🇳" : (detectedCode === "es" ? "🇪🇸" : (detectedCode === "fr" ? "🇫🇷" : "🌐"));
+  
+  // Show English toggle button if spoken language is non-English
+  if (isNonEnglish) {
+    toggleTranslatedBtn.classList.remove("hidden");
   } else {
-    targetLangBadge.classList.add("hidden");
+    toggleTranslatedBtn.classList.add("hidden");
   }
+
+  // Default view is always the original spoken language (Hindi, etc.)
+  activeLanguageView = (trans.task === "translate" && trans.translated_segments) ? "translated" : "original";
+  updateLanguageViewButtons();
 
   audioElement.src = data.audio_url || `/api/audio/${data.task_id}`;
   audioElement.controls = true;
+
+  renderSegmentsAndView();
+
+  const summary = data.summary || {};
+  summaryParagraph.textContent = summary.summary || "No summary generated.";
+  keyPointsList.innerHTML = "";
+  if (summary.key_points && summary.key_points.length > 0) {
+    summary.key_points.forEach(pt => {
+      const li = document.createElement("li");
+      li.className = "flex items-start gap-2 text-slate-300";
+      li.innerHTML = `<i class="ph-bold ph-check text-emerald-400 mt-1 flex-shrink-0"></i><span>${pt.replace(/^[•\-\*]\s*/, '')}</span>`;
+      keyPointsList.appendChild(li);
+    });
+  } else {
+    keyPointsList.innerHTML = `<li class="text-slate-500">No key points extracted.</li>`;
+  }
+
+  rawSubtitleCode.textContent = data.formats?.srt || "";
+
+  resultsSection.classList.remove("hidden");
+  resultsSection.scrollIntoView({ behavior: "smooth" });
+}
+
+function renderSegmentsAndView() {
+  if (!currentTaskData) return;
+  const trans = currentTaskData.transcription || {};
+  
+  const activeSegments = (activeLanguageView === "translated" && trans.translated_segments && trans.translated_segments.length > 0)
+    ? trans.translated_segments
+    : (trans.segments || []);
+
+  const activeFullText = (activeLanguageView === "translated" && trans.translated_full_text)
+    ? trans.translated_full_text
+    : (trans.full_text || "No transcript available.");
 
   viewTimeline.innerHTML = "";
   if (activeSegments.length === 0) {
@@ -544,21 +648,8 @@ function renderResults(data) {
     });
   }
 
-  viewText.textContent = trans.translated_full_text || trans.full_text || "No transcription text available.";
-
-  const summary = data.summary || {};
-  summaryParagraph.textContent = summary.summary || "No summary generated.";
-  keyPointsList.innerHTML = "";
-  if (summary.key_points && summary.key_points.length > 0) {
-    summary.key_points.forEach(pt => {
-      const li = document.createElement("li");
-      li.className = "flex items-start gap-2 text-slate-300";
-      li.innerHTML = `<i class="ph-bold ph-check text-emerald-400 mt-1 flex-shrink-0"></i><span>${pt.replace(/^[•\-\*]\s*/, '')}</span>`;
-      keyPointsList.appendChild(li);
-    });
-  } else {
-    keyPointsList.innerHTML = `<li class="text-slate-500">No key points extracted.</li>`;
-  }
+  viewText.textContent = activeFullText;
+}
 
   rawSubtitleCode.textContent = data.formats?.srt || "";
 

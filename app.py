@@ -136,13 +136,20 @@ async def transcribe_instagram(req: TranscribeRequest):
         else:
             summary_info = extractive_summary(text_for_summary)
 
-        # Step 5: Formats
+        # Step 5: Formats for active and original
         active_segments = trans_result.get("translated_segments") or trans_result.get("segments", [])
+        orig_segments = trans_result.get("segments", [])
+
         txt_format = TranscriptFormatter.to_txt(active_segments, include_timestamps=True)
         txt_raw = TranscriptFormatter.to_txt(active_segments, include_timestamps=False)
         srt_format = TranscriptFormatter.to_srt(active_segments)
         vtt_format = TranscriptFormatter.to_vtt(active_segments)
         md_format = TranscriptFormatter.to_markdown(trans_result, metadata=metadata, summary=summary_info.get("summary"))
+
+        orig_txt_format = TranscriptFormatter.to_txt(orig_segments, include_timestamps=True)
+        orig_txt_raw = TranscriptFormatter.to_txt(orig_segments, include_timestamps=False)
+        orig_srt_format = TranscriptFormatter.to_srt(orig_segments)
+        orig_vtt_format = TranscriptFormatter.to_vtt(orig_segments)
 
         response_data = {
             "task_id": task_id,
@@ -156,6 +163,10 @@ async def transcribe_instagram(req: TranscribeRequest):
                 "srt": srt_format,
                 "vtt": vtt_format,
                 "markdown": md_format,
+                "orig_txt": orig_txt_format,
+                "orig_txt_raw": orig_txt_raw,
+                "orig_srt": orig_srt_format,
+                "orig_vtt": orig_vtt_format,
             }
         }
 

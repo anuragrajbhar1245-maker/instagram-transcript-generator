@@ -146,14 +146,15 @@ class Transcriber:
         chosen_model = model_size or self.default_model
         model = get_whisper_model(chosen_model)
 
-        logger.info(f"Processing audio with local Whisper ({chosen_model}, task={task}, lang={language})...")
+        logger.info(f"Processing audio with local Whisper ({chosen_model}, target_task={task}, lang={language})...")
+        # Always perform verbatim transcription first to get pure native language text
         segments_gen, info = model.transcribe(
             audio_path,
             beam_size=1,
             best_of=1,
             temperature=0.0,
             language=language if language and language != "auto" else None,
-            task=task,
+            task="transcribe",
             vad_filter=True,
             vad_parameters=dict(min_silence_duration_ms=400),
             word_timestamps=False
@@ -188,18 +189,29 @@ class Transcriber:
                 })
 
         full_transcript = " ".join(full_text_parts)
+        detected_lang = info.language or "auto"
 
-        return {
+        result = {
             "engine": "local_whisper",
             "model": chosen_model,
             "task": task,
-            "detected_language": info.language,
-            "language_name": SUPPORTED_LANGUAGES.get(info.language, info.language.upper()),
+            "detected_language": detected_lang,
+            "language_name": SUPPORTED_LANGUAGES.get(detected_lang, detected_lang.upper()),
             "language_probability": round(info.language_probability, 3) if info.language_probability else 1.0,
             "duration": round(info.duration, 2) if info.duration else 0.0,
             "full_text": full_transcript,
             "segments": segments
         }
+
+        # If user explicitly requested English translation and spoken language is not English
+        if task == "translate" and detected_lang != "en":
+            logger.info(f"Applying high-accuracy neural translation from {detected_lang} to en...")
+            result["translated_segments"] = translate_segments(segments, target_lang="en", source_lang=detected_lang)
+            result["translated_full_text"] = translate_text(full_transcript, target_lang="en", source_lang=detected_lang)
+            result["target_language"] = "en"
+            result["target_language_name"] = "English"
+
+        return result
 
     def transcribe_groq(
         self,

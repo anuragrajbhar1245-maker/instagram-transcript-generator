@@ -269,6 +269,17 @@
             </button>
           </div>
 
+          <!-- Language View Switcher (Original vs English/Translated) -->
+          <div id="languageToggleContainer" class="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10 text-xs">
+            <button id="toggleOriginalBtn" class="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-medium flex items-center gap-1 transition-all">
+              <span id="origLangFlag">🇮🇳</span>
+              <span>Original (<span id="origLangLabel">Hindi</span>)</span>
+            </button>
+            <button id="toggleTranslatedBtn" class="hidden px-2.5 py-1 rounded-lg text-slate-400 hover:text-white font-medium flex items-center gap-1 transition-all">
+              <span>🇬🇧 English</span>
+            </button>
+          </div>
+
           <!-- On-The-Fly Translation & Actions -->
           <div class="flex items-center gap-2 flex-wrap">
             
