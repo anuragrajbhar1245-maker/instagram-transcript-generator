@@ -408,8 +408,22 @@ async function handleTranscribeUrl(e) {
   }
 }
 
-transcribeForm.addEventListener("submit", handleTranscribeUrl);
-submitBtn.addEventListener("click", handleTranscribeUrl);
+transcribeForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  handleTranscribeUrl(e);
+});
+
+submitBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  handleTranscribeUrl(e);
+});
+
+urlInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    handleTranscribeUrl(e);
+  }
+});
 
 function updateStep(step) {
   const step1 = document.getElementById("step1");

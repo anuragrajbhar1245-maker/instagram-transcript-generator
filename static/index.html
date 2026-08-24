@@ -70,14 +70,13 @@
       <div class="max-w-3xl mx-auto mt-4 space-y-3">
         
         <!-- Mode 1: URL Form -->
-        <form id="transcribeForm" class="glass-card p-3 sm:p-4 flex flex-col gap-3 border border-white/15 shadow-2xl">
+        <form id="transcribeForm" onsubmit="return false;" class="glass-card p-3 sm:p-4 flex flex-col gap-3 border border-white/15 shadow-2xl">
           <div class="flex flex-col sm:flex-row gap-2 items-center w-full">
             <div class="relative flex-1 w-full flex items-center">
               <i class="ph-bold ph-link text-slate-400 absolute left-3.5 text-lg"></i>
               <input 
                 type="text" 
                 id="urlInput"
-                required
                 placeholder="https://www.instagram.com/reel/C8xxx... or /p/..."
                 class="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-11 pr-20 py-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 transition-all"
               />
@@ -101,9 +100,9 @@
             </div>
 
             <button 
-              type="submit" 
+              type="button" 
               id="submitBtn"
-              class="w-full sm:w-auto px-6 py-3.5 rounded-xl font-semibold text-sm text-white ig-button-gradient shadow-lg flex items-center justify-center gap-2 whitespace-nowrap">
+              class="w-full sm:w-auto px-6 py-3.5 rounded-xl font-semibold text-sm text-white ig-button-gradient shadow-lg flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer">
               <i class="ph-bold ph-sparkle text-lg"></i>
               <span>Generate Transcript</span>
             </button>
