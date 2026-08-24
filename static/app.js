@@ -336,10 +336,15 @@ function formatTime(seconds) {
 }
 
 // URL Form Submission
-transcribeForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const url = urlInput.value.trim();
-  if (!url) return;
+async function handleTranscribeUrl(e) {
+  if (e) e.preventDefault();
+  const rawUrl = urlInput.value.trim();
+  if (!rawUrl) {
+    urlInput.focus();
+    urlInput.classList.add("ring-2", "ring-rose-500");
+    setTimeout(() => urlInput.classList.remove("ring-2", "ring-rose-500"), 2000);
+    return;
+  }
 
   errorAlert.classList.add("hidden");
   resultsSection.classList.add("hidden");
@@ -354,8 +359,8 @@ transcribeForm.addEventListener("submit", async (e) => {
   const chosenLang = quickLanguageSelect.value;
 
   const payload = {
-    url: url,
-    model_size: localStorage.getItem("insta_model") || "tiny",
+    url: rawUrl,
+    model_size: localStorage.getItem("insta_model") || "base",
     engine: localStorage.getItem("insta_engine") || "local",
     api_key: localStorage.getItem("insta_api_key") || null,
     cookies: localStorage.getItem("insta_cookies") || null,
@@ -401,7 +406,10 @@ transcribeForm.addEventListener("submit", async (e) => {
     errorAlert.classList.remove("hidden");
     errorAlert.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
-});
+}
+
+transcribeForm.addEventListener("submit", handleTranscribeUrl);
+submitBtn.addEventListener("click", handleTranscribeUrl);
 
 function updateStep(step) {
   const step1 = document.getElementById("step1");
