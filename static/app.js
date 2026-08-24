@@ -72,6 +72,7 @@ const modelSelect = document.getElementById("modelSelect");
 const languageSelect = document.getElementById("languageSelect");
 const engineSelect = document.getElementById("engineSelect");
 const apiKeyInput = document.getElementById("apiKeyInput");
+const cookiesInput = document.getElementById("cookiesInput");
 
 const historyBtn = document.getElementById("historyBtn");
 const historyModal = document.getElementById("historyModal");
@@ -230,11 +231,13 @@ function loadSettings() {
   const savedLang = localStorage.getItem("insta_lang") || "auto";
   const savedEngine = localStorage.getItem("insta_engine") || "local";
   const savedApiKey = localStorage.getItem("insta_api_key") || "";
+  const savedCookies = localStorage.getItem("insta_cookies") || "";
 
   modelSelect.value = savedModel;
   languageSelect.value = savedLang;
   engineSelect.value = savedEngine;
   apiKeyInput.value = savedApiKey;
+  if (cookiesInput) cookiesInput.value = savedCookies;
 }
 
 function saveSettings() {
@@ -242,6 +245,7 @@ function saveSettings() {
   localStorage.setItem("insta_lang", languageSelect.value);
   localStorage.setItem("insta_engine", engineSelect.value);
   localStorage.setItem("insta_api_key", apiKeyInput.value.trim());
+  if (cookiesInput) localStorage.setItem("insta_cookies", cookiesInput.value.trim());
   quickLanguageSelect.value = languageSelect.value;
   settingsModal.classList.add("hidden");
 }
@@ -346,6 +350,7 @@ transcribeForm.addEventListener("submit", async (e) => {
     model_size: localStorage.getItem("insta_model") || "tiny",
     engine: localStorage.getItem("insta_engine") || "local",
     api_key: localStorage.getItem("insta_api_key") || null,
+    cookies: localStorage.getItem("insta_cookies") || null,
     language: chosenLang,
     task: isTranslateToEnglish ? "translate" : "transcribe"
   };

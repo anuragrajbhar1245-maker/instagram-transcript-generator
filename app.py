@@ -51,6 +51,7 @@ class TranscribeRequest(BaseModel):
     language: Optional[str] = Field(default="auto", description="Spoken language code (e.g. 'en', 'es', 'hi', 'auto')")
     task: str = Field(default="transcribe", description="'transcribe' for original verbatim, 'translate' for direct English")
     target_language: Optional[str] = Field(default=None, description="Optional target language code to translate into")
+    cookies: Optional[str] = Field(default=None, description="Optional Instagram session cookies to bypass rate limits")
 
 class TranslateRequest(BaseModel):
     task_id: str = Field(..., description="Task ID of previous transcript")
@@ -86,7 +87,7 @@ async def transcribe_instagram(req: TranscribeRequest):
         logger.info(f"Processing transcription request for URL: {url} (task={req.task}, target_lang={req.target_language})")
         
         # Step 1: Download media & extract audio
-        audio_path, metadata = downloader.download_audio(url)
+        audio_path, metadata = downloader.download_audio(url, cookies=req.cookies)
         task_id = metadata["task_id"]
 
         # Step 2: Transcribe

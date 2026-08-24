@@ -51,7 +51,7 @@ class InstagramDownloader:
             cookies_file.write_text(env_cookies_text, encoding="utf-8")
             self.cookies_path = str(cookies_file)
 
-    def get_ydl_opts(self, output_template: str, extract_audio_only: bool = True) -> Dict[str, Any]:
+    def get_ydl_opts(self, output_template: str, extract_audio_only: bool = True, custom_cookies: Optional[str] = None) -> Dict[str, Any]:
         """Returns configured yt-dlp options with Instagram web app authentication headers."""
         headers = {
             "User-Agent": (
@@ -66,6 +66,9 @@ class InstagramDownloader:
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Dest": "empty",
         }
+
+        if custom_cookies:
+            headers["Cookie"] = custom_cookies.strip()
 
         opts: Dict[str, Any] = {
             "outtmpl": output_template,
@@ -94,7 +97,7 @@ class InstagramDownloader:
 
         return opts
 
-    def download_audio(self, url: str) -> Tuple[str, Dict[str, Any]]:
+    def download_audio(self, url: str, cookies: Optional[str] = None) -> Tuple[str, Dict[str, Any]]:
         """
         Downloads audio from the Instagram URL.
         Returns (audio_filepath, metadata_dict).
@@ -104,7 +107,7 @@ class InstagramDownloader:
         output_template = str(self.output_dir / f"{task_id}.%(ext)s")
         expected_audio_path = str(self.output_dir / f"{task_id}.{AUDIO_CODEC}")
 
-        ydl_opts = self.get_ydl_opts(output_template, extract_audio_only=True)
+        ydl_opts = self.get_ydl_opts(output_template, extract_audio_only=True, custom_cookies=cookies)
 
         logger.info(f"Downloading Instagram media from: {clean_url}")
         try:
@@ -117,14 +120,13 @@ class InstagramDownloader:
             if "HTTP Error 429" in err_msg or "rate-limit" in err_msg.lower():
                 raise RuntimeError(
                     "Instagram is rate-limiting cloud requests (HTTP 429). "
-                    "You can upload the audio file directly using the Upload File tab, "
-                    "or add your Instagram cookies in Settings."
+                    "Please paste your Instagram cookie in Settings (gear icon), "
+                    "or upload the audio/video file using the Upload File tab."
                 ) from e
             raise
 
         # If postprocessor converted it, expected_audio_path should exist
         if not os.path.exists(expected_audio_path):
-            # Check if an alternative extension exists
             for ext in ["mp3", "m4a", "aac", "wav", "webm", "mp4"]:
                 alt_path = str(self.output_dir / f"{task_id}.{ext}")
                 if os.path.exists(alt_path):
