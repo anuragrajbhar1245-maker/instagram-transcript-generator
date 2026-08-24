@@ -1,18 +1,29 @@
-// Instagram Transcript Generator Frontend Logic (Universal Multilingual)
+// Instagram Transcript Generator Frontend Logic (Link + Upload + Universal Multilingual)
 
 let currentTaskData = null;
 let timerInterval = null;
 let startTime = null;
 let supportedLanguages = [];
+let selectedFile = null;
 
 // DOM Elements
-const form = document.getElementById("transcribeForm");
+const modeLinkBtn = document.getElementById("modeLinkBtn");
+const modeUploadBtn = document.getElementById("modeUploadBtn");
+const transcribeForm = document.getElementById("transcribeForm");
+const uploadForm = document.getElementById("uploadForm");
+
 const urlInput = document.getElementById("urlInput");
 const pasteBtn = document.getElementById("pasteBtn");
 const clearBtn = document.getElementById("clearBtn");
 const submitBtn = document.getElementById("submitBtn");
 const translateToEnglishCheckbox = document.getElementById("translateToEnglishCheckbox");
 const quickLanguageSelect = document.getElementById("quickLanguageSelect");
+
+const dropZone = document.getElementById("dropZone");
+const fileInput = document.getElementById("fileInput");
+const selectedFileName = document.getElementById("selectedFileName");
+const uploadTranslateCheckbox = document.getElementById("uploadTranslateCheckbox");
+const uploadSubmitBtn = document.getElementById("uploadSubmitBtn");
 
 const progressSection = document.getElementById("progressSection");
 const progressStatusTitle = document.getElementById("progressStatusTitle");
@@ -68,6 +79,109 @@ const closeHistoryBtn = document.getElementById("closeHistoryBtn");
 const historyList = document.getElementById("historyList");
 const clearHistoryBtn = document.getElementById("clearHistoryBtn");
 
+// Mode Switching (Link vs Upload)
+modeLinkBtn.addEventListener("click", () => {
+  modeLinkBtn.classList.add("bg-rose-600", "text-white");
+  modeLinkBtn.classList.remove("text-slate-400");
+  modeUploadBtn.classList.remove("bg-rose-600", "text-white");
+  modeUploadBtn.classList.add("text-slate-400");
+  transcribeForm.classList.remove("hidden");
+  uploadForm.classList.add("hidden");
+});
+
+modeUploadBtn.addEventListener("click", () => {
+  modeUploadBtn.classList.add("bg-rose-600", "text-white");
+  modeUploadBtn.classList.remove("text-slate-400");
+  modeLinkBtn.classList.remove("bg-rose-600", "text-white");
+  modeLinkBtn.classList.add("text-slate-400");
+  uploadForm.classList.remove("hidden");
+  transcribeForm.classList.add("hidden");
+});
+
+// File Drag and Drop Handlers
+dropZone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropZone.classList.add("border-rose-500", "bg-slate-800/60");
+});
+dropZone.addEventListener("dragleave", () => {
+  dropZone.classList.remove("border-rose-500", "bg-slate-800/60");
+});
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropZone.classList.remove("border-rose-500", "bg-slate-800/60");
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    handleFileSelected(e.dataTransfer.files[0]);
+  }
+});
+fileInput.addEventListener("change", (e) => {
+  if (e.target.files && e.target.files[0]) {
+    handleFileSelected(e.target.files[0]);
+  }
+});
+
+function handleFileSelected(file) {
+  selectedFile = file;
+  selectedFileName.textContent = `Selected: ${file.name} (${Math.round(file.size / 1024 / 1024 * 10) / 10} MB)`;
+  selectedFileName.classList.remove("hidden");
+  uploadSubmitBtn.disabled = false;
+  uploadSubmitBtn.classList.remove("opacity-50", "cursor-not-allowed");
+}
+
+// Upload Form Submission
+uploadForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!selectedFile) return;
+
+  errorAlert.classList.add("hidden");
+  resultsSection.classList.add("hidden");
+  progressSection.classList.remove("hidden");
+  uploadSubmitBtn.disabled = true;
+
+  startTimer();
+  updateStep(1);
+  progressStatusTitle.textContent = "Uploading & Converting Media...";
+
+  const formData = new FormData();
+  formData.append("file", selectedFile);
+  formData.append("model_size", localStorage.getItem("insta_model") || "tiny");
+  formData.append("engine", localStorage.getItem("insta_engine") || "local");
+  formData.append("api_key", localStorage.getItem("insta_api_key") || "");
+  formData.append("language", quickLanguageSelect.value || "auto");
+  formData.append("task", uploadTranslateCheckbox.checked ? "translate" : "transcribe");
+
+  try {
+    setTimeout(() => updateStep(2), 2000);
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.detail || `Upload error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    updateStep(3);
+
+    setTimeout(() => {
+      stopTimer();
+      progressSection.classList.add("hidden");
+      renderResults(data);
+      saveToHistory(data);
+      uploadSubmitBtn.disabled = false;
+    }, 600);
+
+  } catch (err) {
+    stopTimer();
+    progressSection.classList.add("hidden");
+    uploadSubmitBtn.disabled = false;
+    errorMessage.textContent = err.message || "Failed to process the uploaded file.";
+    errorAlert.classList.remove("hidden");
+  }
+});
+
 // Fetch supported languages and populate dropdowns
 async function fetchLanguages() {
   try {
@@ -82,11 +196,8 @@ async function fetchLanguages() {
 }
 
 function populateLanguageDropdowns() {
-  // Quick Language Select
   quickLanguageSelect.innerHTML = "";
-  // Settings Language Select
   languageSelect.innerHTML = "";
-  // Instant Translate Select
   instantTranslateSelect.innerHTML = `<option value="" disabled selected>Translate into...</option>`;
 
   supportedLanguages.forEach(lang => {
@@ -115,7 +226,7 @@ function populateLanguageDropdowns() {
 
 // Settings initialization from LocalStorage
 function loadSettings() {
-  const savedModel = localStorage.getItem("insta_model") || "base";
+  const savedModel = localStorage.getItem("insta_model") || "tiny";
   const savedLang = localStorage.getItem("insta_lang") || "auto";
   const savedEngine = localStorage.getItem("insta_engine") || "local";
   const savedApiKey = localStorage.getItem("insta_api_key") || "";
@@ -212,8 +323,8 @@ function formatTime(seconds) {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Form Submission & Transcription
-form.addEventListener("submit", async (e) => {
+// URL Form Submission
+transcribeForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const url = urlInput.value.trim();
   if (!url) return;
@@ -232,7 +343,7 @@ form.addEventListener("submit", async (e) => {
 
   const payload = {
     url: url,
-    model_size: localStorage.getItem("insta_model") || "base",
+    model_size: localStorage.getItem("insta_model") || "tiny",
     engine: localStorage.getItem("insta_engine") || "local",
     api_key: localStorage.getItem("insta_api_key") || null,
     language: chosenLang,
@@ -284,12 +395,12 @@ function updateStep(step) {
 
   if (step === 1) {
     step1.classList.add("bg-rose-500/20", "border-rose-500/50", "text-rose-200");
-    progressStatusTitle.textContent = "Downloading Instagram Audio...";
-    progressStatusDesc.textContent = "Extracting clean audio stream from Instagram Reel";
+    progressStatusTitle.textContent = "Extracting Audio...";
+    progressStatusDesc.textContent = "Downloading and converting high-definition audio track";
   } else if (step === 2) {
     step2.classList.add("bg-rose-500/20", "border-rose-500/50", "text-rose-200");
     progressStatusTitle.textContent = "Transcribing with Whisper AI...";
-    progressStatusDesc.textContent = "Detecting language and generating timestamped segments";
+    progressStatusDesc.textContent = "Detecting speech and generating timestamped segments";
   } else if (step === 3) {
     step3.classList.add("bg-rose-500/20", "border-rose-500/50", "text-rose-200");
     progressStatusTitle.textContent = "Formatting & Translating...";
@@ -357,12 +468,18 @@ function renderResults(data) {
   const trans = data.transcription || {};
   const activeSegments = trans.translated_segments || trans.segments || [];
 
-  // Populate Meta
   reelThumbnail.src = meta.thumbnail || "";
   reelThumbnail.onerror = () => { reelThumbnail.style.display = "none"; };
   reelAuthor.textContent = meta.uploader ? `@${meta.uploader}` : "@creator";
   reelTitle.textContent = meta.title || meta.description || "Instagram Video";
-  reelLink.href = meta.webpage_url || urlInput.value;
+  
+  if (meta.webpage_url) {
+    reelLink.href = meta.webpage_url;
+    reelLink.style.display = "inline-flex";
+  } else {
+    reelLink.style.display = "none";
+  }
+
   durationBadge.textContent = meta.duration_formatted || formatTime(trans.duration || 0);
 
   const lang = (trans.detected_language || "auto").toUpperCase();
@@ -380,14 +497,12 @@ function renderResults(data) {
     targetLangBadge.classList.add("hidden");
   }
 
-  // Audio setup
   audioElement.src = data.audio_url || `/api/audio/${data.task_id}`;
   audioElement.controls = true;
 
-  // Render Timeline Segments
   viewTimeline.innerHTML = "";
   if (activeSegments.length === 0) {
-    viewTimeline.innerHTML = `<p class="text-slate-400 text-center py-6">No speech detected in this video.</p>`;
+    viewTimeline.innerHTML = `<p class="text-slate-400 text-center py-6">No speech detected in this audio.</p>`;
   } else {
     activeSegments.forEach((seg) => {
       const segEl = document.createElement("div");
@@ -420,10 +535,8 @@ function renderResults(data) {
     });
   }
 
-  // Render Plain Text
   viewText.textContent = trans.translated_full_text || trans.full_text || "No transcription text available.";
 
-  // Render Summary
   const summary = data.summary || {};
   summaryParagraph.textContent = summary.summary || "No summary generated.";
   keyPointsList.innerHTML = "";
@@ -438,10 +551,8 @@ function renderResults(data) {
     keyPointsList.innerHTML = `<li class="text-slate-500">No key points extracted.</li>`;
   }
 
-  // Render Raw Subtitle (SRT preview)
   rawSubtitleCode.textContent = data.formats?.srt || "";
 
-  // Show results
   resultsSection.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth" });
 }

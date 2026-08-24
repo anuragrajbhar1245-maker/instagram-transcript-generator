@@ -1,16 +1,18 @@
 import os
+import uuid
 import socket
 import logging
 from typing import Optional, Dict, Any, List
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Response
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Response, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
+import subprocess
 
-from config import HOST, PORT, TEMP_DIR, STATIC_DIR, DEFAULT_WHISPER_MODEL
+from config import HOST, PORT, TEMP_DIR, STATIC_DIR, DEFAULT_WHISPER_MODEL, AUDIO_CODEC
 from downloader import InstagramDownloader, is_valid_instagram_url
 from transcriber import Transcriber, SUPPORTED_LANGUAGES, translate_segments, translate_text
 from formatter import TranscriptFormatter
@@ -23,7 +25,7 @@ logger = logging.getLogger("instagram_transcript_app")
 app = FastAPI(
     title="Instagram Transcript Generator",
     description="Extracts and transcribes audio from Instagram Reels and Posts into timestamped text with multi-format export and universal translation.",
-    version="1.1.0"
+    version="1.2.0"
 )
 
 # Enable CORS
@@ -71,12 +73,7 @@ async def get_supported_languages():
 @app.post("/api/transcribe")
 async def transcribe_instagram(req: TranscribeRequest):
     """
-    Main transcription endpoint:
-    1. Validates Instagram link
-    2. Downloads and extracts audio track
-    3. Runs Whisper transcription (local or cloud)
-    4. Optional translation into target language
-    5. Computes summary and formats output
+    Main transcription endpoint for URLs.
     """
     url = req.url.strip()
     if not is_valid_instagram_url(url):
@@ -108,7 +105,6 @@ async def transcribe_instagram(req: TranscribeRequest):
                 task=req.task
             )
         else:
-            # Default: Local faster-whisper (100% free & offline)
             trans_result = transcriber.transcribe_local(
                 audio_path,
                 model_size=req.model_size,
@@ -116,10 +112,9 @@ async def transcribe_instagram(req: TranscribeRequest):
                 task=req.task
             )
 
-        # Step 3: Optional on-the-fly target language translation (if user specified a target_language different from output)
+        # Step 3: Optional target language translation
         source_lang = trans_result.get("detected_language", "auto")
         if req.target_language and req.target_language not in ["auto", source_lang]:
-            logger.info(f"Translating transcript from {source_lang} to {req.target_language}...")
             trans_result["translated_segments"] = translate_segments(
                 trans_result.get("segments", []),
                 target_lang=req.target_language,
@@ -140,7 +135,7 @@ async def transcribe_instagram(req: TranscribeRequest):
         else:
             summary_info = extractive_summary(text_for_summary)
 
-        # Step 5: Generate export formats
+        # Step 5: Formats
         active_segments = trans_result.get("translated_segments") or trans_result.get("segments", [])
         txt_format = TranscriptFormatter.to_txt(active_segments, include_timestamps=True)
         txt_raw = TranscriptFormatter.to_txt(active_segments, include_timestamps=False)
@@ -163,7 +158,6 @@ async def transcribe_instagram(req: TranscribeRequest):
             }
         }
 
-        # Store in session cache
         task_store[task_id] = {
             "audio_path": audio_path,
             "data": response_data
@@ -177,6 +171,102 @@ async def transcribe_instagram(req: TranscribeRequest):
             status_code=500,
             detail=f"Transcription failed: {str(e)}"
         )
+
+@app.post("/api/upload")
+async def upload_and_transcribe(
+    file: UploadFile = File(...),
+    model_size: str = Form(DEFAULT_WHISPER_MODEL),
+    engine: str = Form("local"),
+    api_key: Optional[str] = Form(None),
+    language: Optional[str] = Form("auto"),
+    task: str = Form("transcribe"),
+    target_language: Optional[str] = Form(None)
+):
+    """
+    Direct file upload endpoint for audio/video (.mp3, .m4a, .mp4, .wav, .webm).
+    """
+    try:
+        task_id = str(uuid.uuid4())
+        original_ext = Path(file.filename).suffix or ".mp3"
+        raw_file_path = TEMP_DIR / f"{task_id}_raw{original_ext}"
+        audio_file_path = TEMP_DIR / f"{task_id}.{AUDIO_CODEC}"
+
+        # Save uploaded file
+        with open(raw_file_path, "wb") as f:
+            f.write(await file.read())
+
+        # Convert to audio using ffmpeg
+        logger.info(f"Converting uploaded file '{file.filename}' to audio...")
+        cmd = [
+            "ffmpeg", "-y", "-i", str(raw_file_path),
+            "-vn", "-ar", "16000", "-ac", "1", "-b:a", "128k",
+            str(audio_file_path)
+        ]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+        metadata = {
+            "task_id": task_id,
+            "id": task_id,
+            "title": file.filename,
+            "uploader": "Direct Upload",
+            "duration_formatted": "Uploaded File",
+            "thumbnail": "",
+            "webpage_url": ""
+        }
+
+        # Transcribe
+        if engine == "groq" and api_key:
+            trans_result = transcriber.transcribe_groq(str(audio_file_path), api_key=api_key, language=language, task=task)
+        elif engine == "openai" and api_key:
+            trans_result = transcriber.transcribe_openai(str(audio_file_path), api_key=api_key, language=language, task=task)
+        else:
+            trans_result = transcriber.transcribe_local(str(audio_file_path), model_size=model_size, language=language, task=task)
+
+        # Translation
+        source_lang = trans_result.get("detected_language", "auto")
+        if target_language and target_language not in ["auto", source_lang]:
+            trans_result["translated_segments"] = translate_segments(trans_result.get("segments", []), target_lang=target_language, source_lang=source_lang)
+            trans_result["translated_full_text"] = translate_text(trans_result.get("full_text", ""), target_lang=target_language, source_lang=source_lang)
+            trans_result["target_language"] = target_language
+            trans_result["target_language_name"] = SUPPORTED_LANGUAGES.get(target_language, target_language.upper())
+
+        # Summarize
+        text_for_summary = trans_result.get("translated_full_text") or trans_result.get("full_text", "")
+        summary_info = extractive_summary(text_for_summary)
+
+        # Formats
+        active_segments = trans_result.get("translated_segments") or trans_result.get("segments", [])
+        txt_format = TranscriptFormatter.to_txt(active_segments, include_timestamps=True)
+        txt_raw = TranscriptFormatter.to_txt(active_segments, include_timestamps=False)
+        srt_format = TranscriptFormatter.to_srt(active_segments)
+        vtt_format = TranscriptFormatter.to_vtt(active_segments)
+        md_format = TranscriptFormatter.to_markdown(trans_result, metadata=metadata, summary=summary_info.get("summary"))
+
+        response_data = {
+            "task_id": task_id,
+            "metadata": metadata,
+            "transcription": trans_result,
+            "summary": summary_info,
+            "audio_url": f"/api/audio/{task_id}",
+            "formats": {
+                "txt": txt_format,
+                "txt_raw": txt_raw,
+                "srt": srt_format,
+                "vtt": vtt_format,
+                "markdown": md_format,
+            }
+        }
+
+        task_store[task_id] = {
+            "audio_path": str(audio_file_path),
+            "data": response_data
+        }
+
+        return response_data
+
+    except Exception as e:
+        logger.exception("Error uploading audio:")
+        raise HTTPException(status_code=500, detail=f"Upload processing failed: {str(e)}")
 
 @app.post("/api/translate")
 async def translate_existing_transcript(req: TranslateRequest):
@@ -315,7 +405,6 @@ def find_available_port(host: str, start_port: int = 8000, max_attempts: int = 1
 
 if __name__ == "__main__":
     import argparse
-    # Port configuration from environment variable (for Hugging Face Spaces / Render compatibility)
     env_port = int(os.getenv("PORT", os.getenv("SPACE_PORT", PORT)))
     env_host = os.getenv("HOST", "0.0.0.0" if os.getenv("SPACE_ID") or os.getenv("RENDER") else HOST)
 

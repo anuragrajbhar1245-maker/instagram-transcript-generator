@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Instagram Transcript Generator - AI Universal Multilingual Speech-to-Text</title>
+  <title>Instagram Transcript Generator - AI Universal Speech-to-Text</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Phosphor Icons CDN -->
@@ -23,7 +23,7 @@
           <h1 class="font-bold text-lg leading-tight tracking-tight flex items-center gap-2">
             InstaTranscript <span class="text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-mono font-medium border border-rose-500/30">99+ Languages</span>
           </h1>
-          <p class="text-xs text-slate-400">Transcribe & Translate any Instagram Reel or Post</p>
+          <p class="text-xs text-slate-400">Transcribe & Translate any Instagram Reel or Audio</p>
         </div>
       </div>
 
@@ -43,23 +43,34 @@
   <!-- Main Container -->
   <main class="max-w-5xl mx-auto px-4 py-8 flex-1 w-full space-y-8">
     
-    <!-- Hero / Input Section -->
+    <!-- Hero Section -->
     <section class="text-center space-y-4 pt-4">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-slate-300 mb-1">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        100% Free & Offline Whisper • Auto-detects 99+ Spoken Languages
+        100% Free & Universal AI • 99+ Languages & Translations
       </div>
       <h2 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight">
         Transcribe & Translate <span class="ig-badge-gradient">Any Instagram Reel</span>
       </h2>
       <p class="text-slate-400 max-w-2xl mx-auto text-sm sm:text-base">
-        Paste any public Instagram link to extract synchronized speech, timestamps, smart summaries, and translate between 100+ languages with direct SRT/VTT export.
+        Paste any Instagram link or upload media to extract synchronized speech, timestamps, summaries, and export to SRT/VTT in 100+ languages.
       </p>
 
-      <!-- URL Input Card -->
-      <div class="max-w-3xl mx-auto mt-6 space-y-3">
-        <form id="transcribeForm" class="glass-card p-2 sm:p-3 flex flex-col gap-3 border border-white/15 shadow-2xl">
-          
+      <!-- Mode Selector (Link vs Upload) -->
+      <div class="flex items-center justify-center gap-2 max-w-xs mx-auto p-1 rounded-xl bg-slate-900/80 border border-white/10 text-xs font-medium">
+        <button id="modeLinkBtn" class="flex-1 py-1.5 px-3 rounded-lg bg-rose-600 text-white flex items-center justify-center gap-1.5 transition-all">
+          <i class="ph-bold ph-link"></i> Instagram Link
+        </button>
+        <button id="modeUploadBtn" class="flex-1 py-1.5 px-3 rounded-lg text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition-all">
+          <i class="ph-bold ph-upload-simple"></i> Upload File
+        </button>
+      </div>
+
+      <!-- Main Input Card -->
+      <div class="max-w-3xl mx-auto mt-4 space-y-3">
+        
+        <!-- Mode 1: URL Form -->
+        <form id="transcribeForm" class="glass-card p-3 sm:p-4 flex flex-col gap-3 border border-white/15 shadow-2xl">
           <div class="flex flex-col sm:flex-row gap-2 items-center w-full">
             <div class="relative flex-1 w-full flex items-center">
               <i class="ph-bold ph-link text-slate-400 absolute left-3.5 text-lg"></i>
@@ -67,7 +78,7 @@
                 type="url" 
                 id="urlInput"
                 required
-                placeholder="https://www.instagram.com/reel/C8xxx..."
+                placeholder="https://www.instagram.com/reel/C8xxx... or /p/..."
                 class="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-11 pr-20 py-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 transition-all"
               />
               <div class="absolute right-2 flex items-center gap-1">
@@ -100,15 +111,13 @@
 
           <!-- Quick Options Toolbar -->
           <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/5 text-xs px-1">
-            <div class="flex items-center gap-2">
-              <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
-                <input type="checkbox" id="translateToEnglishCheckbox" class="rounded bg-slate-800 border-white/20 text-rose-500 focus:ring-rose-500 focus:ring-offset-slate-900">
-                <span class="flex items-center gap-1">
-                  <i class="ph-bold ph-translate text-rose-400"></i>
-                  <span>Direct Translate to English</span>
-                </span>
-              </label>
-            </div>
+            <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+              <input type="checkbox" id="translateToEnglishCheckbox" class="rounded bg-slate-800 border-white/20 text-rose-500 focus:ring-rose-500 focus:ring-offset-slate-900">
+              <span class="flex items-center gap-1">
+                <i class="ph-bold ph-translate text-rose-400"></i>
+                <span>Direct Translate to English</span>
+              </span>
+            </label>
 
             <div class="flex items-center gap-2">
               <span class="text-slate-400">Audio Language:</span>
@@ -117,13 +126,35 @@
               </select>
             </div>
           </div>
-
         </form>
 
-        <!-- Sample URLs tip -->
+        <!-- Mode 2: Direct File Upload Form (Hidden by default) -->
+        <form id="uploadForm" class="hidden glass-card p-6 border border-white/15 shadow-2xl space-y-4 text-center">
+          <div id="dropZone" class="border-2 border-dashed border-white/20 hover:border-rose-500/50 rounded-2xl p-8 transition-colors cursor-pointer bg-slate-900/40 flex flex-col items-center justify-center gap-2">
+            <i class="ph-bold ph-cloud-arrow-up text-4xl text-rose-400 animate-bounce"></i>
+            <p class="font-semibold text-sm text-slate-200">Drag & drop your Instagram audio or video file here</p>
+            <p class="text-xs text-slate-400">Supports MP4, MP3, M4A, WAV, WebM (up to 100MB)</p>
+            <input type="file" id="fileInput" accept="video/*,audio/*" class="hidden" />
+            <button type="button" onclick="document.getElementById('fileInput').click()" class="mt-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium border border-white/10">
+              Browse Files
+            </button>
+            <p id="selectedFileName" class="hidden text-xs text-rose-300 font-mono mt-2"></p>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs px-1">
+            <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+              <input type="checkbox" id="uploadTranslateCheckbox" class="rounded bg-slate-800 border-white/20 text-rose-500 focus:ring-rose-500 focus:ring-offset-slate-900">
+              <span>Direct Translate to English</span>
+            </label>
+            <button type="submit" id="uploadSubmitBtn" disabled class="px-6 py-2.5 rounded-xl font-semibold text-xs text-white ig-button-gradient shadow-lg opacity-50 cursor-not-allowed">
+              Upload & Transcribe
+            </button>
+          </div>
+        </form>
+
         <div class="flex items-center justify-center gap-2 text-xs text-slate-500">
           <span>Supported:</span>
-          <span class="text-slate-400">Reels, Video Posts, IGTV, and Share Links in any spoken language</span>
+          <span class="text-slate-400">Reels, Posts, IGTV, and direct audio/video uploads</span>
         </div>
       </div>
     </section>
@@ -134,18 +165,17 @@
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-full border-2 border-rose-500 border-t-transparent animate-spin flex items-center justify-center"></div>
           <div>
-            <h4 id="progressStatusTitle" class="font-semibold text-sm text-slate-200">Processing Instagram Video...</h4>
-            <p id="progressStatusDesc" class="text-xs text-slate-400">Downloading high-definition audio track</p>
+            <h4 id="progressStatusTitle" class="font-semibold text-sm text-slate-200">Processing Audio...</h4>
+            <p id="progressStatusDesc" class="text-xs text-slate-400">Extracting high-definition audio stream</p>
           </div>
         </div>
         <span id="elapsedTimer" class="font-mono text-xs text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-md border border-rose-500/20">00:00</span>
       </div>
 
-      <!-- Step Indicator -->
       <div class="grid grid-cols-3 gap-2 pt-2 text-xs">
         <div id="step1" class="p-2.5 rounded-lg bg-slate-800/80 border border-white/10 flex items-center gap-2">
           <i class="ph-bold ph-download-simple text-slate-400 text-sm"></i>
-          <span>1. Download</span>
+          <span>1. Audio</span>
         </div>
         <div id="step2" class="p-2.5 rounded-lg bg-slate-800/80 border border-white/10 flex items-center gap-2">
           <i class="ph-bold ph-waveform text-slate-400 text-sm"></i>
@@ -162,8 +192,8 @@
     <div id="errorAlert" class="hidden max-w-2xl mx-auto p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200 text-sm flex items-start gap-3">
       <i class="ph-bold ph-warning-circle text-xl text-rose-400 mt-0.5 flex-shrink-0"></i>
       <div class="flex-1">
-        <p class="font-semibold">Request Failed</p>
-        <p id="errorMessage" class="text-xs text-rose-300 mt-1"></p>
+        <p class="font-semibold">Request Notice</p>
+        <p id="errorMessage" class="text-xs text-rose-300 mt-1 leading-relaxed"></p>
       </div>
       <button onclick="document.getElementById('errorAlert').classList.add('hidden')" class="text-rose-400 hover:text-white">
         <i class="ph-bold ph-x"></i>
@@ -186,7 +216,7 @@
             </div>
             <p id="reelTitle" class="text-xs text-slate-400 line-clamp-2 max-w-lg">Reel Title / Caption</p>
             <a id="reelLink" href="#" target="_blank" class="inline-flex items-center gap-1 text-xs text-pink-400 hover:underline">
-              <span>Open on Instagram</span>
+              <span>View Source</span>
               <i class="ph-bold ph-arrow-square-out text-xs"></i>
             </a>
           </div>
@@ -354,7 +384,7 @@
     <div class="glass-card max-w-md w-full p-6 border border-white/20 shadow-2xl space-y-5 bg-slate-900">
       <div class="flex items-center justify-between border-b border-white/10 pb-3">
         <h3 class="font-bold text-base text-white flex items-center gap-2">
-          <i class="ph-bold ph-sliders"></i> Engine & Language Settings
+          <i class="ph-bold ph-sliders"></i> Settings & Cloud Configuration
         </h3>
         <button id="closeSettingsBtn" class="text-slate-400 hover:text-white">
           <i class="ph-bold ph-x text-lg"></i>
@@ -363,14 +393,13 @@
 
       <div class="space-y-4 text-xs">
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Whisper Model Size (Local CPU)</label>
+          <label class="block font-semibold text-slate-300 mb-1">Whisper Model Size</label>
           <select id="modelSelect" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-slate-200">
-            <option value="tiny">Tiny (Fastest, ~75MB)</option>
-            <option value="base" selected>Base (Recommended, ~140MB)</option>
-            <option value="small">Small (Higher accuracy, ~460MB)</option>
-            <option value="medium">Medium (Maximum accuracy, ~1.5GB)</option>
+            <option value="tiny" selected>Tiny (Optimized for Render Free Tier 512MB)</option>
+            <option value="base">Base (Balanced accuracy)</option>
+            <option value="small">Small (Higher accuracy)</option>
+            <option value="medium">Medium (Maximum accuracy)</option>
           </select>
-          <p class="text-[11px] text-slate-500 mt-1">Pre-cached locally for 100% offline free execution.</p>
         </div>
 
         <div>
@@ -383,11 +412,11 @@
         <div class="pt-2 border-t border-white/10 space-y-2">
           <div class="flex items-center justify-between">
             <label class="font-semibold text-slate-300">Optional Cloud API Key</label>
-            <span class="text-[10px] text-slate-500">Direct connection</span>
+            <span class="text-[10px] text-slate-500">Instant cloud transcription</span>
           </div>
           <select id="engineSelect" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-slate-200 mb-2">
             <option value="local" selected>Local Faster-Whisper (Free & Offline)</option>
-            <option value="groq">Groq Cloud API (Superfast Whisper-large-v3)</option>
+            <option value="groq">Groq Cloud API (Instant Whisper-large-v3)</option>
             <option value="openai">OpenAI Whisper API</option>
           </select>
           <input 

@@ -16,6 +16,9 @@ INSTAGRAM_URL_REGEX = re.compile(
     re.IGNORECASE
 )
 
+# Public Instagram App ID used by official web client
+INSTAGRAM_WEB_APP_ID = "936619743392459"
+
 def is_valid_instagram_url(url: str) -> bool:
     """Checks whether the provided URL is a valid Instagram Reel, Post, or Video link."""
     if not url or not isinstance(url, str):
@@ -31,16 +34,39 @@ def normalize_instagram_url(url: str) -> str:
     
     # Strip URL tracking query parameters (?utm_source=..., ?igsh=..., etc.)
     base_url = url.split("?")[0]
+    if not base_url.endswith("/"):
+        base_url += "/"
     return base_url
 
 class InstagramDownloader:
     def __init__(self, output_dir: Optional[Path] = None, cookies_path: Optional[str] = None):
         self.output_dir = output_dir or TEMP_DIR
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.cookies_path = cookies_path
+        self.cookies_path = cookies_path or os.getenv("INSTAGRAM_COOKIES_PATH")
+
+        # Check for cookies in environment variable
+        env_cookies_text = os.getenv("INSTAGRAM_COOKIES")
+        if env_cookies_text and not self.cookies_path:
+            cookies_file = self.output_dir / "cookies.txt"
+            cookies_file.write_text(env_cookies_text, encoding="utf-8")
+            self.cookies_path = str(cookies_file)
 
     def get_ydl_opts(self, output_template: str, extract_audio_only: bool = True) -> Dict[str, Any]:
-        """Returns configured yt-dlp options."""
+        """Returns configured yt-dlp options with Instagram web app authentication headers."""
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "X-IG-App-ID": INSTAGRAM_WEB_APP_ID,
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://www.instagram.com/",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Dest": "empty",
+        }
+
         opts: Dict[str, Any] = {
             "outtmpl": output_template,
             "quiet": True,
@@ -48,13 +74,11 @@ class InstagramDownloader:
             "ignoreerrors": False,
             "noplaylist": True,
             "format": "bestaudio/best",
-            "http_headers": {
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/124.0.0.0 Safari/537.36"
-                ),
-                "Accept-Language": "en-US,en;q=0.9",
+            "http_headers": headers,
+            "extractor_args": {
+                "instagram": {
+                    "app_id": [INSTAGRAM_WEB_APP_ID],
+                }
             }
         }
 
@@ -70,31 +94,6 @@ class InstagramDownloader:
 
         return opts
 
-    def extract_info(self, url: str) -> Dict[str, Any]:
-        """Fetches metadata without downloading the full media."""
-        clean_url = normalize_instagram_url(url)
-        opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
-            "extract_flat": False,
-            "http_headers": {
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/124.0.0.0 Safari/537.36"
-                ),
-            }
-        }
-        if self.cookies_path and os.path.exists(self.cookies_path):
-            opts["cookiefile"] = self.cookies_path
-
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(clean_url, download=False)
-            if not info:
-                raise ValueError("Could not extract metadata for this Instagram link.")
-            return info
-
     def download_audio(self, url: str) -> Tuple[str, Dict[str, Any]]:
         """
         Downloads audio from the Instagram URL.
@@ -108,10 +107,20 @@ class InstagramDownloader:
         ydl_opts = self.get_ydl_opts(output_template, extract_audio_only=True)
 
         logger.info(f"Downloading Instagram media from: {clean_url}")
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(clean_url, download=True)
-            if not info:
-                raise ValueError("Failed to download media from the provided Instagram URL.")
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(clean_url, download=True)
+                if not info:
+                    raise ValueError("Failed to download media from the provided Instagram URL.")
+        except Exception as e:
+            err_msg = str(e)
+            if "HTTP Error 429" in err_msg or "rate-limit" in err_msg.lower():
+                raise RuntimeError(
+                    "Instagram is rate-limiting cloud requests (HTTP 429). "
+                    "You can upload the audio file directly using the Upload File tab, "
+                    "or add your Instagram cookies in Settings."
+                ) from e
+            raise
 
         # If postprocessor converted it, expected_audio_path should exist
         if not os.path.exists(expected_audio_path):
