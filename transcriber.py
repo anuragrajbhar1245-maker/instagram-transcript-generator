@@ -240,6 +240,13 @@ class Transcriber:
         url = "https://api.groq.com/openai/v1/audio/transcriptions"
         headers = {"Authorization": f"Bearer {api_key}"}
 
+        # Define contextual priming prompt to prevent Whisper from confusing Hindi with Urdu/Bengali
+        prompt = None
+        if language == "hi":
+            prompt = "नमस्ते दोस्तों, यह हिंदी भाषा (Devanagari script) में स्पष्ट बातचीत है।"
+        elif not language or language == "auto":
+            prompt = "नमस्ते दोस्तों, Hello, this is a clear conversation in Hindi (हिन्दी) and English."
+
         with open(audio_path, "rb") as f:
             files = {"file": (os.path.basename(audio_path), f, "audio/mpeg")}
             data = {
@@ -248,6 +255,8 @@ class Transcriber:
             }
             if language and language != "auto":
                 data["language"] = language
+            if prompt:
+                data["prompt"] = prompt
 
             response = requests.post(url, headers=headers, files=files, data=data, timeout=60)
 
