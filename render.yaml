@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: instagram-transcript-generator
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0
+      - key: WHISPER_MODEL
+        value: tiny
