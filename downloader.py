@@ -127,6 +127,11 @@ class InstagramDownloader:
                 raw_downloaded_file = ydl.prepare_filename(info)
         except Exception as e:
             err_msg = str(e)
+            if "HTTP Error 400" in err_msg or "HTTP Error 404" in err_msg or "not found" in err_msg.lower() or "Video info extraction failed" in err_msg:
+                raise ValueError(
+                    "This Instagram Reel or Post could not be found. It may have been deleted, "
+                    "is from a private account, or the link is expired/invalid."
+                ) from e
             if "unable to obtain file audio codec" in err_msg or "silent" in err_msg.lower():
                 raise ValueError(
                     "This Instagram Reel/Video has no audio track (it is completely silent). "

@@ -149,12 +149,14 @@ class Transcriber:
         logger.info(f"Processing audio with local Whisper ({chosen_model}, task={task}, lang={language})...")
         segments_gen, info = model.transcribe(
             audio_path,
-            beam_size=5,
+            beam_size=1,
+            best_of=1,
+            temperature=0.0,
             language=language if language and language != "auto" else None,
             task=task,
             vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=500),
-            word_timestamps=True
+            vad_parameters=dict(min_silence_duration_ms=400),
+            word_timestamps=False
         )
 
         segments: List[Dict[str, Any]] = []

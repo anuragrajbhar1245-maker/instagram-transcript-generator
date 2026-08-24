@@ -355,8 +355,9 @@ transcribeForm.addEventListener("submit", async (e) => {
     task: isTranslateToEnglish ? "translate" : "transcribe"
   };
 
+  let stepTimeout = null;
   try {
-    setTimeout(() => updateStep(2), 2500);
+    stepTimeout = setTimeout(() => updateStep(2), 2000);
 
     const response = await fetch("/api/transcribe", {
       method: "POST",
@@ -370,6 +371,7 @@ transcribeForm.addEventListener("submit", async (e) => {
     }
 
     const data = await response.json();
+    if (stepTimeout) clearTimeout(stepTimeout);
     updateStep(3);
 
     setTimeout(() => {
@@ -379,15 +381,17 @@ transcribeForm.addEventListener("submit", async (e) => {
       saveToHistory(data);
       submitBtn.disabled = false;
       submitBtn.classList.remove("opacity-70");
-    }, 600);
+    }, 500);
 
   } catch (err) {
+    if (stepTimeout) clearTimeout(stepTimeout);
     stopTimer();
     progressSection.classList.add("hidden");
     submitBtn.disabled = false;
     submitBtn.classList.remove("opacity-70");
     errorMessage.textContent = err.message || "Failed to process the Instagram link.";
     errorAlert.classList.remove("hidden");
+    errorAlert.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 });
 
