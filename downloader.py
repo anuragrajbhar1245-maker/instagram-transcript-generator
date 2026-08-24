@@ -43,6 +43,11 @@ class InstagramDownloader:
         self.output_dir = output_dir or TEMP_DIR
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.cookies_path = cookies_path or os.getenv("INSTAGRAM_COOKIES_PATH")
+        
+        # Check project root cookies.txt
+        root_cookies = Path(__file__).parent / "cookies.txt"
+        if not self.cookies_path and root_cookies.exists():
+            self.cookies_path = str(root_cookies)
 
         # Check for cookies in environment variable
         env_cookies_text = os.getenv("INSTAGRAM_COOKIES")
