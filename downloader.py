@@ -108,41 +108,53 @@ class InstagramDownloader:
 
         ydl_opts = self.get_ydl_opts(raw_output_template, custom_cookies=cookies)
 
-        logger.info(f"Downloading Instagram media from: {clean_url}")
+        # Attempt 1: Standard extraction
+        raw_downloaded_file = None
+        info = None
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(clean_url, download=True)
-                if not info:
-                    raise ValueError("Failed to download media from the provided Instagram URL.")
-                
-                # Check if all formats have no audio
-                formats = info.get("formats", [])
-                has_audio = any(f.get("acodec") not in [None, "none", ""] for f in formats)
-                if formats and not has_audio and info.get("acodec") in [None, "none", ""]:
+                if info:
+                    raw_downloaded_file = ydl.prepare_filename(info)
+        except Exception as first_err:
+            logger.warning(f"First download pass failed ({first_err}). Attempting fallback anonymous pass...")
+            # Attempt 2: Fallback without cookies
+            try:
+                fallback_opts = self.get_ydl_opts(raw_output_template, custom_cookies=None)
+                fallback_opts.pop("cookiefile", None)
+                with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                    info = ydl.extract_info(clean_url, download=True)
+                    if info:
+                        raw_downloaded_file = ydl.prepare_filename(info)
+            except Exception as e:
+                err_msg = str(e)
+                if "HTTP Error 400" in err_msg or "HTTP Error 404" in err_msg or "not found" in err_msg.lower() or "Video info extraction failed" in err_msg:
                     raise ValueError(
-                        "This Instagram Reel/Video does not have any audio track (it is silent or muted). "
-                        "Please provide an Instagram video that contains speech or sound."
-                    )
+                        "This Instagram Reel or Post could not be found. It may have been deleted, "
+                        "is from a private account, or the link is expired/invalid."
+                    ) from e
+                if "unable to obtain file audio codec" in err_msg or "silent" in err_msg.lower():
+                    raise ValueError(
+                        "This Instagram Reel/Video has no audio track (it is completely silent). "
+                        "Please test with a video that has audio or speech."
+                    ) from e
+                if "HTTP Error 429" in err_msg or "rate-limit" in err_msg.lower():
+                    raise ValueError(
+                        "Instagram rate-limit reached. Please try uploading the media file directly in the Upload tab, or configure your Instagram cookies in Settings."
+                    ) from e
+                raise e
 
-                raw_downloaded_file = ydl.prepare_filename(info)
-        except Exception as e:
-            err_msg = str(e)
-            if "HTTP Error 400" in err_msg or "HTTP Error 404" in err_msg or "not found" in err_msg.lower() or "Video info extraction failed" in err_msg:
-                raise ValueError(
-                    "This Instagram Reel or Post could not be found. It may have been deleted, "
-                    "is from a private account, or the link is expired/invalid."
-                ) from e
-            if "unable to obtain file audio codec" in err_msg or "silent" in err_msg.lower():
-                raise ValueError(
-                    "This Instagram Reel/Video has no audio track (it is completely silent). "
-                    "Please test with a video that has audio or speech."
-                ) from e
-            if "HTTP Error 429" in err_msg or "rate-limit" in err_msg.lower():
-                raise RuntimeError(
-                    "Instagram is rate-limiting cloud requests (HTTP 429). "
-                    "You can upload the audio/video file directly using the Upload File tab."
-                ) from e
-            raise
+        if not info:
+            raise ValueError("Failed to download media from the provided Instagram URL.")
+
+        # Check if video is silent/muted
+        formats = info.get("formats", [])
+        has_audio = any(f.get("acodec") not in [None, "none", ""] for f in formats)
+        if formats and not has_audio and info.get("acodec") in [None, "none", ""]:
+            raise ValueError(
+                "This Instagram Reel/Video does not have any audio track (it is silent or muted). "
+                "Please provide an Instagram video that contains speech or sound."
+            )
 
         # Convert downloaded media to standardized audio using direct FFmpeg
         if not os.path.exists(raw_downloaded_file):

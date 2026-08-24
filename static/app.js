@@ -682,12 +682,6 @@ function renderSegmentsAndView() {
   viewText.textContent = activeFullText;
 }
 
-  rawSubtitleCode.textContent = data.formats?.srt || "";
-
-  resultsSection.classList.remove("hidden");
-  resultsSection.scrollIntoView({ behavior: "smooth" });
-}
-
 // Audio Player Time Synchronizer
 audioElement.addEventListener("timeupdate", () => {
   const cur = audioElement.currentTime;
