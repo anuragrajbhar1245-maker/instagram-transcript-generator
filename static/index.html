@@ -28,6 +28,7 @@
       </div>
 
       <div class="flex items-center gap-2 sm:gap-3">
+        <!-- History & Settings -->
         <button id="historyBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-300 transition-colors border border-white/10">
           <i class="ph-bold ph-clock-counter-clockwise text-sm text-pink-400"></i>
           <span class="hidden sm:inline">History</span>
@@ -36,6 +37,24 @@
           <i class="ph-bold ph-gear text-sm text-slate-400"></i>
           <span>Settings</span>
         </button>
+
+        <!-- Logged Out Auth Button -->
+        <button id="authOpenBtn" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white shadow-lg shadow-rose-600/25 transition-all">
+          <i class="ph-bold ph-user"></i>
+          <span>Sign In</span>
+        </button>
+
+        <!-- Logged In User Profile Bar -->
+        <div id="userProfileBar" class="hidden flex items-center gap-2 bg-slate-900/90 border border-white/15 px-2.5 py-1 rounded-xl shadow-md">
+          <span id="userCreditsBadge" class="text-xs font-semibold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
+            <i class="ph-bold ph-lightning text-amber-400"></i>
+            <span id="creditsCount">10</span>
+          </span>
+          <span id="userEmailLabel" class="text-xs text-slate-300 font-medium max-w-[110px] sm:max-w-[150px] truncate">user@email.com</span>
+          <button id="logoutBtn" title="Log Out" class="text-slate-400 hover:text-rose-400 text-sm p-0.5 transition-colors">
+            <i class="ph-bold ph-sign-out"></i>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -492,6 +511,101 @@
         <button id="clearHistoryBtn" class="text-rose-400 hover:underline">Clear History</button>
         <button onclick="document.getElementById('historyModal').classList.add('hidden')" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200">Close</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Authentication Modal (Sign In / Sign Up) -->
+  <div id="authModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="glass-card max-w-md w-full p-6 border border-white/20 shadow-2xl space-y-4 bg-slate-900/95 relative animate-fade-in">
+      <button id="closeAuthBtn" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+        <i class="ph-bold ph-x text-lg"></i>
+      </button>
+
+      <!-- Modal Header & Tabs -->
+      <div class="text-center space-y-2 pt-2">
+        <div class="inline-flex p-1 rounded-xl bg-slate-800/90 border border-white/10 text-xs font-semibold w-full">
+          <button id="authTabLogin" class="flex-1 py-2 rounded-lg bg-rose-600 text-white transition-all">
+            Sign In
+          </button>
+          <button id="authTabRegister" class="flex-1 py-2 rounded-lg text-slate-400 hover:text-white transition-all flex items-center justify-center gap-1">
+            <span>Sign Up</span>
+            <span class="text-[10px] bg-amber-500/30 text-amber-300 px-1.5 py-0.2 rounded-full border border-amber-500/40">Free 10 ⚡</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Auth Error Alert -->
+      <div id="authError" class="hidden p-3 rounded-lg bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs"></div>
+
+      <!-- Sign In Form -->
+      <form id="loginForm" class="space-y-3 pt-1">
+        <div class="space-y-1 text-xs">
+          <label class="text-slate-300 font-medium">Email Address</label>
+          <input 
+            type="email" 
+            id="loginEmail" 
+            required 
+            placeholder="you@example.com" 
+            class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
+          />
+        </div>
+        <div class="space-y-1 text-xs">
+          <label class="text-slate-300 font-medium">Password</label>
+          <input 
+            type="password" 
+            id="loginPassword" 
+            required 
+            placeholder="••••••••" 
+            class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
+          />
+        </div>
+        <button 
+          type="submit" 
+          id="loginSubmitBtn"
+          class="w-full py-2.5 rounded-xl font-semibold text-xs text-white ig-button-gradient shadow-lg flex items-center justify-center gap-2 mt-2">
+          <span>Sign In to Account</span>
+        </button>
+      </form>
+
+      <!-- Sign Up Form (Hidden by default) -->
+      <form id="registerForm" class="hidden space-y-3 pt-1">
+        <div class="space-y-1 text-xs">
+          <label class="text-slate-300 font-medium">Your Name</label>
+          <input 
+            type="text" 
+            id="registerName" 
+            placeholder="Alex" 
+            class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
+          />
+        </div>
+        <div class="space-y-1 text-xs">
+          <label class="text-slate-300 font-medium">Email Address</label>
+          <input 
+            type="email" 
+            id="registerEmail" 
+            required 
+            placeholder="you@example.com" 
+            class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
+          />
+        </div>
+        <div class="space-y-1 text-xs">
+          <label class="text-slate-300 font-medium">Create Password</label>
+          <input 
+            type="password" 
+            id="registerPassword" 
+            required 
+            minlength="6"
+            placeholder="At least 6 characters" 
+            class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
+          />
+        </div>
+        <button 
+          type="submit" 
+          id="registerSubmitBtn"
+          class="w-full py-2.5 rounded-xl font-semibold text-xs text-white ig-button-gradient shadow-lg flex items-center justify-center gap-2 mt-2">
+          <span>Create Account & Get 10 Credits</span>
+        </button>
+      </form>
     </div>
   </div>
 

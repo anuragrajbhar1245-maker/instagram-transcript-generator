@@ -4,29 +4,46 @@ import socket
 import logging
 from typing import Optional, Dict, Any, List
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Response, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Response, UploadFile, File, Form, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
+from sqlalchemy.orm import Session
 import uvicorn
 import subprocess
+import json
 
 from config import HOST, PORT, TEMP_DIR, STATIC_DIR, DEFAULT_WHISPER_MODEL, AUDIO_CODEC
 from downloader import InstagramDownloader, is_valid_instagram_url
 from transcriber import Transcriber, SUPPORTED_LANGUAGES, translate_segments, translate_text
 from formatter import TranscriptFormatter
 from summarizer import extractive_summary, ai_summary
+from database import init_db, get_db
+from models import User, TranscriptRecord
+from auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    get_current_user,
+    get_optional_user
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("instagram_transcript_app")
 
 app = FastAPI(
-    title="Instagram Transcript Generator",
+    title="InstaTranscript - AI Universal Video Transcriber",
     description="Extracts and transcribes audio from Instagram Reels and Posts into timestamped text with multi-format export and universal translation.",
-    version="1.2.0"
+    version="2.0.0"
 )
+
+# Initialize Database tables on startup
+@app.on_event("startup")
+def on_startup():
+    logger.info("Initializing database schemas...")
+    init_db()
 
 # Enable CORS
 app.add_middleware(
@@ -42,6 +59,16 @@ task_store: Dict[str, Dict[str, Any]] = {}
 
 downloader = InstagramDownloader(output_dir=TEMP_DIR)
 transcriber = Transcriber(default_model=DEFAULT_WHISPER_MODEL)
+
+# --- Pydantic Schemas ---
+class UserRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=6, description="Password (at least 6 characters)")
+    full_name: Optional[str] = Field(default=None, description="User display name")
+
+class UserLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
 
 class TranscribeRequest(BaseModel):
     url: str = Field(..., description="Instagram Reel or Post URL")
@@ -71,11 +98,130 @@ async def get_supported_languages():
     """Returns list of supported language codes and human-readable names."""
     return [{"code": k, "name": v} for k, v in SUPPORTED_LANGUAGES.items()]
 
+# --- Authentication Endpoints ---
+@app.post("/api/auth/register")
+def register_user(req: UserRegisterRequest, db: Session = Depends(get_db)):
+    """Registers a new user account with 10 free credits."""
+    existing = db.query(User).filter(User.email == req.email.lower().strip()).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+
+    hashed_pw = hash_password(req.password)
+    user = User(
+        email=req.email.lower().strip(),
+        password_hash=hashed_pw,
+        full_name=req.full_name or req.email.split("@")[0],
+        tier="free",
+        credits=10
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    token = create_access_token({"sub": user.email, "uid": user.id})
+    return {
+        "status": "success",
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "tier": user.tier,
+            "credits": user.credits
+        }
+    }
+
+@app.post("/api/auth/login")
+def login_user(req: UserLoginRequest, db: Session = Depends(get_db)):
+    """Authenticates user and returns JWT token."""
+    user = db.query(User).filter(User.email == req.email.lower().strip()).first()
+    if not user or not verify_password(req.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    token = create_access_token({"sub": user.email, "uid": user.id})
+    return {
+        "status": "success",
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "tier": user.tier,
+            "credits": user.credits
+        }
+    }
+
+@app.get("/api/auth/me")
+def get_me(current_user: User = Depends(get_current_user)):
+    """Returns current authenticated user profile & remaining credits."""
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "tier": current_user.tier,
+        "credits": current_user.credits,
+        "created_at": current_user.created_at.isoformat() if current_user.created_at else None
+    }
+
+# --- Cloud History Endpoints ---
+@app.get("/api/user/history")
+def get_user_history(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Fetches all saved transcripts for the authenticated user."""
+    records = db.query(TranscriptRecord).filter(
+        TranscriptRecord.user_id == current_user.id
+    ).order_by(TranscriptRecord.created_at.desc()).limit(50).all()
+
+    items = []
+    for r in records:
+        items.append({
+            "task_id": r.id,
+            "instagram_url": r.instagram_url,
+            "title": r.title,
+            "uploader": r.uploader,
+            "thumbnail": r.thumbnail,
+            "duration_formatted": r.duration_formatted,
+            "detected_language": r.detected_language,
+            "language_name": r.language_name,
+            "full_text": r.full_text,
+            "translated_text": r.translated_text,
+            "target_language": r.target_language,
+            "summary": r.summary,
+            "created_at": r.created_at.isoformat() if r.created_at else None
+        })
+    return {"items": items, "count": len(items)}
+
+@app.delete("/api/user/history/{task_id}")
+def delete_user_history_item(task_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Deletes a transcript record owned by the user."""
+    record = db.query(TranscriptRecord).filter(
+        TranscriptRecord.id == task_id,
+        TranscriptRecord.user_id == current_user.id
+    ).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Transcript record not found.")
+
+    db.delete(record)
+    db.commit()
+    return {"status": "deleted", "task_id": task_id}
+
 @app.post("/api/transcribe")
-async def transcribe_instagram(req: TranscribeRequest):
+async def transcribe_instagram(
+    req: TranscribeRequest,
+    current_user: Optional[User] = Depends(get_optional_user),
+    db: Session = Depends(get_db)
+):
     """
     Main transcription endpoint for URLs.
     """
+    # Credit check for authenticated users
+    if current_user and current_user.tier != "pro" and current_user.credits <= 0:
+        raise HTTPException(
+            status_code=402,
+            detail="You have used all your free transcription credits. Please upgrade to Pro or contact support."
+        )
+
     url = req.url.strip()
     if not is_valid_instagram_url(url):
         raise HTTPException(
@@ -157,12 +303,45 @@ async def transcribe_instagram(req: TranscribeRequest):
         orig_srt_format = TranscriptFormatter.to_srt(orig_segments)
         orig_vtt_format = TranscriptFormatter.to_vtt(orig_segments)
 
+        # Save to Database if user is authenticated & deduct 1 credit
+        user_credits = None
+        user_tier = "free"
+        if current_user:
+            if current_user.tier != "pro":
+                current_user.credits = max(0, current_user.credits - 1)
+            
+            user_credits = current_user.credits
+            user_tier = current_user.tier
+
+            record = TranscriptRecord(
+                id=task_id,
+                user_id=current_user.id,
+                instagram_url=url,
+                title=metadata.get("title") or metadata.get("description") or "Instagram Video",
+                uploader=metadata.get("uploader") or "creator",
+                thumbnail=metadata.get("thumbnail"),
+                duration=metadata.get("duration") or int(trans_result.get("duration", 0)),
+                duration_formatted=metadata.get("duration_formatted"),
+                detected_language=trans_result.get("detected_language", "en"),
+                language_name=trans_result.get("language_name", "English"),
+                full_text=trans_result.get("full_text"),
+                translated_text=trans_result.get("translated_full_text"),
+                target_language=trans_result.get("target_language"),
+                summary=summary_info.get("summary"),
+                key_points_json=json.dumps(summary_info.get("key_points", [])),
+                segments_json=json.dumps(trans_result.get("segments", []))
+            )
+            db.add(record)
+            db.commit()
+
         response_data = {
             "task_id": task_id,
             "metadata": metadata,
             "transcription": trans_result,
             "summary": summary_info,
             "audio_url": f"/api/audio/{task_id}",
+            "user_credits": user_credits,
+            "user_tier": user_tier,
             "formats": {
                 "txt": txt_format,
                 "txt_raw": txt_raw,
@@ -198,11 +377,19 @@ async def upload_and_transcribe(
     api_key: Optional[str] = Form(None),
     language: Optional[str] = Form("auto"),
     task: str = Form("transcribe"),
-    target_language: Optional[str] = Form(None)
+    target_language: Optional[str] = Form(None),
+    current_user: Optional[User] = Depends(get_optional_user),
+    db: Session = Depends(get_db)
 ):
     """
     Direct file upload endpoint for audio/video (.mp3, .m4a, .mp4, .wav, .webm).
     """
+    if current_user and current_user.tier != "pro" and current_user.credits <= 0:
+        raise HTTPException(
+            status_code=402,
+            detail="You have used all your free transcription credits. Please upgrade to Pro or contact support."
+        )
+
     try:
         task_id = str(uuid.uuid4())
         original_ext = Path(file.filename).suffix or ".mp3"
@@ -224,12 +411,11 @@ async def upload_and_transcribe(
 
         metadata = {
             "task_id": task_id,
-            "id": task_id,
             "title": file.filename,
             "uploader": "Direct Upload",
             "duration_formatted": "Uploaded File",
-            "thumbnail": "",
-            "webpage_url": ""
+            "thumbnail": None,
+            "webpage_url": None
         }
 
         # Transcribe
@@ -266,12 +452,44 @@ async def upload_and_transcribe(
         vtt_format = TranscriptFormatter.to_vtt(active_segments)
         md_format = TranscriptFormatter.to_markdown(trans_result, metadata=metadata, summary=summary_info.get("summary"))
 
+        user_credits = None
+        user_tier = "free"
+        if current_user:
+            if current_user.tier != "pro":
+                current_user.credits = max(0, current_user.credits - 1)
+            
+            user_credits = current_user.credits
+            user_tier = current_user.tier
+
+            record = TranscriptRecord(
+                id=task_id,
+                user_id=current_user.id,
+                instagram_url=None,
+                title=metadata["title"],
+                uploader="Direct Upload",
+                thumbnail=None,
+                duration=int(trans_result.get("duration", 0)),
+                duration_formatted="Uploaded File",
+                detected_language=trans_result.get("detected_language", "en"),
+                language_name=trans_result.get("language_name", "English"),
+                full_text=trans_result.get("full_text"),
+                translated_text=trans_result.get("translated_full_text"),
+                target_language=trans_result.get("target_language"),
+                summary=summary_info.get("summary"),
+                key_points_json=json.dumps(summary_info.get("key_points", [])),
+                segments_json=json.dumps(trans_result.get("segments", []))
+            )
+            db.add(record)
+            db.commit()
+
         response_data = {
             "task_id": task_id,
             "metadata": metadata,
             "transcription": trans_result,
             "summary": summary_info,
             "audio_url": f"/api/audio/{task_id}",
+            "user_credits": user_credits,
+            "user_tier": user_tier,
             "formats": {
                 "txt": txt_format,
                 "txt_raw": txt_raw,

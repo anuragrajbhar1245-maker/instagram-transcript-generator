@@ -88,6 +88,33 @@ const closeHistoryBtn = document.getElementById("closeHistoryBtn");
 const historyList = document.getElementById("historyList");
 const clearHistoryBtn = document.getElementById("clearHistoryBtn");
 
+// Auth DOM Elements
+const authOpenBtn = document.getElementById("authOpenBtn");
+const authModal = document.getElementById("authModal");
+const closeAuthBtn = document.getElementById("closeAuthBtn");
+const authTabLogin = document.getElementById("authTabLogin");
+const authTabRegister = document.getElementById("authTabRegister");
+const authError = document.getElementById("authError");
+
+const loginForm = document.getElementById("loginForm");
+const loginEmail = document.getElementById("loginEmail");
+const loginPassword = document.getElementById("loginPassword");
+const loginSubmitBtn = document.getElementById("loginSubmitBtn");
+
+const registerForm = document.getElementById("registerForm");
+const registerName = document.getElementById("registerName");
+const registerEmail = document.getElementById("registerEmail");
+const registerPassword = document.getElementById("registerPassword");
+const registerSubmitBtn = document.getElementById("registerSubmitBtn");
+
+const userProfileBar = document.getElementById("userProfileBar");
+const userCreditsBadge = document.getElementById("userCreditsBadge");
+const creditsCount = document.getElementById("creditsCount");
+const userEmailLabel = document.getElementById("userEmailLabel");
+const logoutBtn = document.getElementById("logoutBtn");
+
+let currentUser = null;
+
 // Mode Switching (Link vs Upload)
 modeLinkBtn.addEventListener("click", () => {
   modeLinkBtn.classList.add("bg-rose-600", "text-white");
@@ -383,9 +410,15 @@ async function handleTranscribeUrl(e) {
   try {
     stepTimeout = setTimeout(() => updateStep(2), 2000);
 
+    const token = localStorage.getItem("insta_token");
+    const headers = { "Content-Type": "application/json" };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch("/api/transcribe", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: headers,
       body: JSON.stringify(payload)
     });
 
@@ -397,6 +430,12 @@ async function handleTranscribeUrl(e) {
     const data = await response.json();
     if (stepTimeout) clearTimeout(stepTimeout);
     updateStep(3);
+
+    // Update user credits if returned
+    if (data.user_credits !== undefined && data.user_credits !== null) {
+      if (creditsCount) creditsCount.textContent = data.user_credits;
+      if (currentUser) currentUser.credits = data.user_credits;
+    }
 
     setTimeout(() => {
       stopTimer();
@@ -431,6 +470,76 @@ urlInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
     handleTranscribeUrl(e);
+  }
+});
+
+// File Upload Form Submission
+uploadForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!selectedFile) return;
+
+  errorAlert.classList.add("hidden");
+  resultsSection.classList.add("hidden");
+  progressSection.classList.remove("hidden");
+  uploadSubmitBtn.disabled = true;
+
+  startTimer();
+  updateStep(1);
+
+  const formData = new FormData();
+  formData.append("file", selectedFile);
+  formData.append("model_size", localStorage.getItem("insta_model") || "base");
+  formData.append("engine", localStorage.getItem("insta_engine") || "local");
+  formData.append("api_key", localStorage.getItem("insta_api_key") || "");
+  formData.append("language", quickLanguageSelect.value);
+  formData.append("task", uploadTranslateCheckbox.checked ? "translate" : "transcribe");
+
+  let stepTimeout = null;
+  try {
+    stepTimeout = setTimeout(() => updateStep(2), 2000);
+
+    const token = localStorage.getItem("insta_token");
+    const headers = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      headers: headers,
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.detail || `Upload failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (stepTimeout) clearTimeout(stepTimeout);
+    updateStep(3);
+
+    // Update user credits if returned
+    if (data.user_credits !== undefined && data.user_credits !== null) {
+      if (creditsCount) creditsCount.textContent = data.user_credits;
+      if (currentUser) currentUser.credits = data.user_credits;
+    }
+
+    setTimeout(() => {
+      stopTimer();
+      progressSection.classList.add("hidden");
+      renderResults(data);
+      saveToHistory(data);
+      uploadSubmitBtn.disabled = false;
+    }, 400);
+
+  } catch (err) {
+    if (stepTimeout) clearTimeout(stepTimeout);
+    stopTimer();
+    progressSection.classList.add("hidden");
+    uploadSubmitBtn.disabled = false;
+    errorMessage.textContent = err.message || "Failed to process the uploaded file.";
+    errorAlert.classList.remove("hidden");
   }
 });
 
@@ -797,7 +906,95 @@ settingsBtn.addEventListener("click", () => {
 closeSettingsBtn.addEventListener("click", () => settingsModal.classList.add("hidden"));
 saveSettingsBtn.addEventListener("click", saveSettings);
 
-// History Modal
+// History Modal & Cloud History Integration
+async function fetchCloudHistory() {
+  const token = localStorage.getItem("insta_token");
+  if (!token) return null;
+  try {
+    const res = await fetch("/api/user/history", {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.items || [];
+    }
+  } catch (err) {
+    console.error("Failed to load cloud history:", err);
+  }
+  return null;
+}
+
+async function renderHistory() {
+  historyList.innerHTML = `<div class="text-center py-4"><i class="ph-bold ph-spinner animate-spin text-lg text-rose-400"></i><p class="text-slate-400 text-xs mt-1">Loading transcripts...</p></div>`;
+
+  let historyItems = [];
+  const cloudItems = await fetchCloudHistory();
+
+  if (cloudItems !== null) {
+    historyItems = cloudItems.map(item => ({
+      task_id: item.task_id,
+      title: item.title,
+      uploader: item.uploader,
+      thumbnail: item.thumbnail,
+      duration: item.duration_formatted,
+      timestamp: item.created_at,
+      data: {
+        task_id: item.task_id,
+        metadata: {
+          title: item.title,
+          uploader: item.uploader,
+          thumbnail: item.thumbnail,
+          duration_formatted: item.duration_formatted
+        },
+        transcription: {
+          detected_language: item.detected_language,
+          language_name: item.language_name,
+          full_text: item.full_text,
+          translated_full_text: item.translated_text,
+          target_language: item.target_language
+        },
+        summary: { summary: item.summary },
+        audio_url: `/api/audio/${item.task_id}`
+      }
+    }));
+  } else {
+    historyItems = JSON.parse(localStorage.getItem("insta_history") || "[]");
+  }
+
+  historyList.innerHTML = "";
+  if (historyItems.length === 0) {
+    historyList.innerHTML = `<p class="text-slate-500 text-center py-6">No recent transcripts found.<br><span class="text-[10px] text-slate-600">Transcribe any reel to see it saved here!</span></p>`;
+    return;
+  }
+
+  historyItems.forEach(item => {
+    const el = document.createElement("div");
+    el.className = "p-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-white/5 cursor-pointer flex items-center justify-between transition-colors";
+    el.innerHTML = `
+      <div class="flex items-center gap-2.5 overflow-hidden">
+        <img src="${item.thumbnail || ''}" onerror="this.style.display='none'" class="w-9 h-11 object-cover rounded bg-slate-900 flex-shrink-0">
+        <div class="truncate">
+          <p class="font-medium text-slate-200 truncate">${item.title || 'Instagram Video'}</p>
+          <p class="text-[10px] text-slate-400">@${item.uploader || 'creator'} • ${item.duration || '0:00'}</p>
+        </div>
+      </div>
+      <span class="text-rose-400 text-xs flex items-center gap-1 flex-shrink-0 ml-2">
+        <i class="ph-bold ph-arrow-right"></i>
+      </span>
+    `;
+
+    el.addEventListener("click", () => {
+      if (item.data) {
+        renderResults(item.data);
+        historyModal.classList.add("hidden");
+        resultsSection.scrollIntoView({ behavior: "smooth" });
+      }
+    });
+
+    historyList.appendChild(el);
+  });
+}
+
 historyBtn.addEventListener("click", () => {
   renderHistory();
   historyModal.classList.remove("hidden");
@@ -808,6 +1005,161 @@ clearHistoryBtn.addEventListener("click", () => {
   renderHistory();
 });
 
+// --- Auth Modal & Authentication Flow ---
+if (authOpenBtn) {
+  authOpenBtn.addEventListener("click", () => {
+    authError.classList.add("hidden");
+    authModal.classList.remove("hidden");
+  });
+}
+
+if (closeAuthBtn) {
+  closeAuthBtn.addEventListener("click", () => {
+    authModal.classList.add("hidden");
+  });
+}
+
+if (authTabLogin && authTabRegister) {
+  authTabLogin.addEventListener("click", () => {
+    authTabLogin.classList.add("bg-rose-600", "text-white");
+    authTabLogin.classList.remove("text-slate-400");
+    authTabRegister.classList.remove("bg-rose-600", "text-white");
+    authTabRegister.classList.add("text-slate-400");
+    loginForm.classList.remove("hidden");
+    registerForm.classList.add("hidden");
+    authError.classList.add("hidden");
+  });
+
+  authTabRegister.addEventListener("click", () => {
+    authTabRegister.classList.add("bg-rose-600", "text-white");
+    authTabRegister.classList.remove("text-slate-400");
+    authTabLogin.classList.remove("bg-rose-600", "text-white");
+    authTabLogin.classList.add("text-slate-400");
+    registerForm.classList.remove("hidden");
+    loginForm.classList.add("hidden");
+    authError.classList.add("hidden");
+  });
+}
+
+// Sign In Form Submission
+if (loginForm) {
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    authError.classList.add("hidden");
+    loginSubmitBtn.disabled = true;
+    loginSubmitBtn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Signing In...`;
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: loginEmail.value.trim(),
+          password: loginPassword.value
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Invalid login credentials.");
+      }
+
+      localStorage.setItem("insta_token", data.access_token);
+      authModal.classList.add("hidden");
+      loginForm.reset();
+      await checkAuthState();
+
+    } catch (err) {
+      authError.textContent = err.message;
+      authError.classList.remove("hidden");
+    } finally {
+      loginSubmitBtn.disabled = false;
+      loginSubmitBtn.innerHTML = `<span>Sign In to Account</span>`;
+    }
+  });
+}
+
+// Sign Up Form Submission
+if (registerForm) {
+  registerForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    authError.classList.add("hidden");
+    registerSubmitBtn.disabled = true;
+    registerSubmitBtn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Creating Account...`;
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: registerEmail.value.trim(),
+          password: registerPassword.value,
+          full_name: registerName.value.trim() || undefined
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Registration failed.");
+      }
+
+      localStorage.setItem("insta_token", data.access_token);
+      authModal.classList.add("hidden");
+      registerForm.reset();
+      await checkAuthState();
+
+    } catch (err) {
+      authError.textContent = err.message;
+      authError.classList.remove("hidden");
+    } finally {
+      registerSubmitBtn.disabled = false;
+      registerSubmitBtn.innerHTML = `<span>Create Account & Get 10 Credits</span>`;
+    }
+  });
+}
+
+// Log Out Handler
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", () => {
+    localStorage.removeItem("insta_token");
+    currentUser = null;
+    if (userProfileBar) userProfileBar.classList.add("hidden");
+    if (authOpenBtn) authOpenBtn.classList.remove("hidden");
+  });
+}
+
+// Check Authentication State on Startup
+async function checkAuthState() {
+  const token = localStorage.getItem("insta_token");
+  if (!token) {
+    if (userProfileBar) userProfileBar.classList.add("hidden");
+    if (authOpenBtn) authOpenBtn.classList.remove("hidden");
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/auth/me", {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+
+    if (res.ok) {
+      currentUser = await res.json();
+      if (userProfileBar) userProfileBar.classList.remove("hidden");
+      if (authOpenBtn) authOpenBtn.classList.add("hidden");
+      if (creditsCount) creditsCount.textContent = currentUser.credits;
+      if (userEmailLabel) userEmailLabel.textContent = currentUser.full_name || currentUser.email;
+    } else {
+      localStorage.removeItem("insta_token");
+      currentUser = null;
+      if (userProfileBar) userProfileBar.classList.add("hidden");
+      if (authOpenBtn) authOpenBtn.classList.remove("hidden");
+    }
+  } catch (err) {
+    console.error("Failed to check auth state:", err);
+  }
+}
+
 // Initialize on page load
 loadSettings();
 fetchLanguages();
+checkAuthState();
