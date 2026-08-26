@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="dark bg-[#09090b]">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>InstaTranscript - AI Instagram Reel & Video Transcript Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>InstaTranscript AI — Instagram Video Speech-to-Text & Subtitles</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="alternate icon" type="image/png" href="/logo.png">
   
@@ -15,52 +15,68 @@
   <!-- Clerk Auth SDK -->
   <script async crossorigin="anonymous" data-clerk-publishable-key="" id="clerk-script" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"></script>
 
-  <!-- Google Identity Services (Real Google Sign-In) -->
+  <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-rose-500 selection:text-white">
+<body class="bg-[#09090b] text-zinc-100 min-h-screen flex flex-col font-sans selection:bg-rose-500/30 selection:text-rose-200">
 
-  <!-- Navbar -->
-  <header class="border-b border-white/10 bg-slate-950/70 backdrop-blur-md sticky top-0 z-40">
-    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <img src="/logo.svg" alt="InstaTranscript Logo" class="w-10 h-10 rounded-xl shadow-lg shadow-rose-500/25 border border-white/10 flex-shrink-0">
-        <div>
-          <h1 class="font-bold text-lg leading-tight tracking-tight flex items-center gap-2">
-            InstaTranscript <span class="text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-mono font-medium border border-rose-500/30">99+ Languages</span>
-          </h1>
-          <p class="text-xs text-slate-400">Transcribe & Translate any Instagram Reel or Audio</p>
+  <!-- Apple Frosted Glass Navbar -->
+  <header class="sticky top-0 z-40 w-full border-b border-white/10 bg-zinc-950/80 backdrop-blur-2xl">
+    <div class="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-3 sm:px-6 lg:px-8">
+      <!-- Brand Logo -->
+      <a href="/" class="group flex items-center gap-2.5 rounded-2xl p-1 transition press-scale">
+        <div class="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-rose-500 via-purple-600 to-amber-500 text-white shadow-md shadow-rose-500/20 transition-transform duration-300 group-hover:scale-105">
+          <i class="ph-fill ph-fire text-xl"></i>
         </div>
+        <div class="flex flex-col">
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <span class="font-extrabold text-sm sm:text-lg tracking-tight text-white">InstaTranscript</span>
+            <span class="rounded-full bg-rose-500/20 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-rose-400 border border-rose-500/30">v2.0</span>
+          </div>
+          <p class="hidden sm:block text-[11px] text-zinc-400 font-medium">Groq Whisper-large-v3 &bull; 99+ Languages</p>
+        </div>
+      </a>
+
+      <!-- Center Dynamic Island Latency Pill (Tablet & Desktop) -->
+      <div class="hidden md:flex items-center gap-2 rounded-full border border-white/10 bg-zinc-900/60 px-3.5 py-1.5 text-xs font-medium text-zinc-300 shadow-inner backdrop-blur-md">
+        <span class="relative flex h-2 w-2">
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+        </span>
+        <span class="font-semibold text-[11px]">Render Engine Connected</span>
+        <span class="text-zinc-500">&bull;</span>
+        <span class="text-[11px] text-zinc-400 font-mono">0.5s Latency</span>
       </div>
 
-      <div class="flex items-center gap-2 sm:gap-3">
-        <!-- History & Settings -->
-        <button id="historyBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-300 transition-colors border border-white/10">
+      <!-- Right Controls -->
+      <div class="flex items-center gap-1.5 sm:gap-3">
+        <button id="historyBtn" class="press-scale relative flex items-center gap-1.5 rounded-full border border-white/10 bg-zinc-900/80 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-zinc-300 shadow-sm transition hover:bg-zinc-800">
           <i class="ph-bold ph-clock-counter-clockwise text-sm text-pink-400"></i>
           <span class="hidden sm:inline">History</span>
         </button>
-        <button id="settingsBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-300 transition-colors border border-white/10">
-          <i class="ph-bold ph-gear text-sm text-slate-400"></i>
-          <span>Settings</span>
+
+        <button id="settingsBtn" class="press-scale flex items-center gap-1.5 rounded-full border border-white/10 bg-zinc-900/80 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-zinc-300 shadow-sm transition hover:bg-zinc-800">
+          <i class="ph-bold ph-gear text-sm text-zinc-400"></i>
+          <span class="hidden sm:inline">Settings</span>
         </button>
 
         <!-- Logged Out Auth Button -->
-        <button id="authOpenBtn" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white shadow-lg shadow-rose-600/25 transition-all cursor-pointer">
+        <button id="authOpenBtn" class="press-scale flex items-center gap-1.5 rounded-full bg-white px-3 sm:px-3.5 py-1.5 text-xs font-bold text-zinc-950 shadow-sm hover:bg-zinc-200 transition">
           <i class="ph-bold ph-user"></i>
           <span>Sign In</span>
         </button>
 
-        <!-- Clerk Mounted User Button -->
+        <!-- Clerk User Button Mount -->
         <div id="clerkUserButton" class="hidden"></div>
 
         <!-- Logged In User Profile Bar -->
-        <div id="userProfileBar" class="hidden flex items-center gap-2 bg-slate-900/90 border border-white/15 px-2.5 py-1 rounded-xl shadow-md">
+        <div id="userProfileBar" class="hidden flex items-center gap-2 bg-zinc-900 border border-white/15 px-2.5 py-1 rounded-full shadow-md">
           <span id="userCreditsBadge" class="text-xs font-semibold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
             <i class="ph-bold ph-lightning text-amber-400"></i>
             <span id="creditsCount">10</span>
           </span>
-          <span id="userEmailLabel" class="text-xs text-slate-300 font-medium max-w-[110px] sm:max-w-[150px] truncate">user@email.com</span>
-          <button id="logoutBtn" title="Log Out" class="text-slate-400 hover:text-rose-400 text-sm p-0.5 transition-colors">
+          <span id="userEmailLabel" class="text-xs text-zinc-300 font-medium max-w-[100px] sm:max-w-[140px] truncate">user@email.com</span>
+          <button id="logoutBtn" title="Log Out" class="text-zinc-400 hover:text-rose-400 text-sm p-0.5 transition-colors">
             <i class="ph-bold ph-sign-out"></i>
           </button>
         </div>
@@ -68,171 +84,202 @@
     </div>
   </header>
 
-
-  <!-- Main Container -->
-  <main class="max-w-5xl mx-auto px-4 py-8 flex-1 w-full space-y-8">
+  <!-- Main Responsive Container -->
+  <main class="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10 flex-1 space-y-8">
     
     <!-- Hero Section -->
-    <section class="text-center space-y-4 pt-4">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-slate-300 mb-1">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        100% Free & Universal AI • 99+ Languages & Translations
-      </div>
-      <h2 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight">
-        Transcribe & Translate <span class="ig-badge-gradient">Any Instagram Reel</span>
-      </h2>
-      <p class="text-slate-400 max-w-2xl mx-auto text-sm sm:text-base">
-        Paste any Instagram link or upload media to extract synchronized speech, timestamps, summaries, and export to SRT/VTT in 100+ languages.
-      </p>
+    <section class="relative mx-auto w-full max-w-4xl lg:max-w-5xl py-2 sm:py-6">
+      <!-- Background Ambient Glow -->
+      <div class="pointer-events-none absolute -top-16 left-1/2 -z-10 h-[300px] sm:h-[400px] w-[95vw] max-w-[800px] -translate-x-1/2 rounded-full bg-gradient-to-tr from-rose-600/20 via-purple-600/20 to-amber-500/20 blur-[80px]"></div>
 
-      <!-- Mode Selector (Link vs Upload) -->
-      <div class="flex items-center justify-center gap-2 max-w-xs mx-auto p-1 rounded-xl bg-slate-900/80 border border-white/10 text-xs font-medium">
-        <button id="modeLinkBtn" class="flex-1 py-1.5 px-3 rounded-lg bg-rose-600 text-white flex items-center justify-center gap-1.5 transition-all">
-          <i class="ph-bold ph-link"></i> Instagram Link
-        </button>
-        <button id="modeUploadBtn" class="flex-1 py-1.5 px-3 rounded-lg text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition-all">
-          <i class="ph-bold ph-upload-simple"></i> Upload File
-        </button>
+      <div class="text-center space-y-3 sm:space-y-4 mb-6 sm:mb-8 px-2">
+        <div class="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-3.5 py-1 text-[11px] sm:text-xs font-semibold text-rose-400 backdrop-blur-xl shadow-inner">
+          <i class="ph-bold ph-sparkle text-rose-400 animate-pulse"></i>
+          <span>Devanagari Token Priming &bull; 99+ Languages</span>
+        </div>
+
+        <h1 class="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white leading-[1.12]">
+          Extract Instagram Audio & Text <span class="bg-gradient-to-r from-rose-500 via-purple-500 to-amber-400 bg-clip-text text-transparent">Instantly.</span>
+        </h1>
+
+        <p class="mx-auto max-w-xl text-xs sm:text-sm md:text-base text-zinc-400 leading-relaxed font-sans">
+          FastAPI + Groq Whisper-large-v3 pipeline. Supports Instagram Reels, Posts, and direct MP4/MP3 audio uploads with timestamped subtitle export.
+        </p>
       </div>
 
-      <!-- Main Input Card -->
-      <div class="max-w-3xl mx-auto mt-4 space-y-3">
+      <!-- Main Input Card (Apple Glass Panel) -->
+      <div class="glass-panel rounded-3xl p-5 sm:p-8 shadow-2xl transition-all duration-300">
         
-        <!-- Mode 1: URL Form -->
-        <form id="transcribeForm" onsubmit="return false;" class="glass-card p-3 sm:p-4 flex flex-col gap-3 border border-white/15 shadow-2xl">
-          <div class="flex flex-col sm:flex-row gap-2 items-center w-full">
-            <div class="relative flex-1 w-full flex items-center">
-              <i class="ph-bold ph-link text-slate-400 absolute left-3.5 text-lg"></i>
-              <input 
-                type="text" 
-                id="urlInput"
-                placeholder="https://www.instagram.com/reel/C8xxx... or /p/..."
-                class="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-11 pr-20 py-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 transition-all"
-              />
-              <div class="absolute right-2 flex items-center gap-1">
-                <button 
-                  type="button" 
-                  id="pasteBtn" 
-                  title="Paste from Clipboard"
-                  class="px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition-colors flex items-center gap-1">
-                  <i class="ph-bold ph-clipboard"></i>
-                  <span class="hidden sm:inline">Paste</span>
-                </button>
-                <button 
-                  type="button" 
-                  id="clearBtn" 
-                  title="Clear"
-                  class="hidden p-1.5 text-slate-400 hover:text-white transition-colors">
-                  <i class="ph-bold ph-x"></i>
-                </button>
-              </div>
-            </div>
-
-            <button 
-              type="button" 
-              id="submitBtn"
-              class="w-full sm:w-auto px-6 py-3.5 rounded-xl font-semibold text-sm text-white ig-button-gradient shadow-lg flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer">
-              <i class="ph-bold ph-sparkle text-lg"></i>
-              <span>Generate Transcript</span>
+        <!-- Apple Segmented Control -->
+        <div class="flex justify-center mb-6">
+          <div class="relative flex rounded-2xl border border-white/10 bg-zinc-900/80 p-1 backdrop-blur-2xl w-full sm:w-auto shadow-inner">
+            <button id="modeLinkBtn" class="flex-1 sm:flex-initial py-2 px-5 sm:px-7 rounded-xl bg-gradient-to-r from-rose-600 to-purple-600 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all">
+              <i class="ph-bold ph-link"></i>
+              <span>Instagram Link</span>
+            </button>
+            <button id="modeUploadBtn" class="flex-1 sm:flex-initial py-2 px-5 sm:px-7 rounded-xl text-zinc-400 hover:text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all">
+              <i class="ph-bold ph-cloud-arrow-up"></i>
+              <span>Direct File Upload</span>
             </button>
           </div>
+        </div>
 
-          <!-- Quick Options Toolbar -->
-          <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/5 text-xs px-1">
-            <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
-              <input type="checkbox" id="translateToEnglishCheckbox" class="rounded bg-slate-800 border-white/20 text-rose-500 focus:ring-rose-500 focus:ring-offset-slate-900">
-              <span class="flex items-center gap-1">
-                <i class="ph-bold ph-translate text-rose-400"></i>
-                <span>Direct Translate to English</span>
-              </span>
-            </label>
+        <!-- Mode 1: URL Form -->
+        <form id="transcribeForm" onsubmit="return false;" class="space-y-4">
+          <div class="relative flex items-center">
+            <i class="ph-bold ph-link text-zinc-400 absolute left-3.5 sm:left-4 text-base sm:text-lg"></i>
+            <input 
+              type="text" 
+              id="urlInput"
+              placeholder="https://www.instagram.com/reel/C8xxx... or /p/..."
+              class="w-full rounded-2xl border border-white/10 bg-zinc-900/90 py-3.5 sm:py-4 pl-10 sm:pl-12 pr-20 sm:pr-24 text-xs sm:text-sm md:text-base text-white placeholder-zinc-500 outline-none transition focus:border-rose-500/80 focus:bg-zinc-950 focus:ring-2 focus:ring-rose-500/20"
+            />
+            <div class="absolute right-2.5 sm:right-3 flex items-center gap-1">
+              <button 
+                type="button" 
+                id="pasteBtn" 
+                title="Paste from Clipboard"
+                class="press-scale flex items-center gap-1 rounded-xl border border-white/10 bg-zinc-800/90 px-2.5 py-1.5 text-xs font-semibold text-zinc-200 shadow-sm transition hover:bg-zinc-700 hover:text-white">
+                <i class="ph-bold ph-clipboard"></i>
+                <span class="hidden sm:inline">Paste</span>
+              </button>
+              <button 
+                type="button" 
+                id="clearBtn" 
+                title="Clear"
+                class="hidden p-1.5 text-zinc-400 hover:text-white transition-colors">
+                <i class="ph-bold ph-x"></i>
+              </button>
+            </div>
+          </div>
 
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Audio Language:</span>
-              <select id="quickLanguageSelect" class="bg-slate-800/90 text-slate-200 text-xs px-2.5 py-1.5 rounded-lg border border-white/10 focus:outline-none focus:border-rose-500">
+          <!-- Whisper Engine & Language Controls -->
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div class="space-y-1">
+              <label class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                <i class="ph-bold ph-lightning text-amber-400"></i>
+                <span>Whisper Engine</span>
+              </label>
+              <select id="quickEngineSelect" class="w-full appearance-none rounded-2xl border border-white/10 bg-zinc-900/90 px-3.5 py-3 text-xs sm:text-sm font-medium text-zinc-200 outline-none transition focus:border-rose-500">
+                <option value="groq" selected>⚡ Groq Whisper-large-v3 (~0.5s Ultra-Fast)</option>
+                <option value="local">💻 Local Faster-Whisper (Offline CPU)</option>
+                <option value="openai">🤖 OpenAI Whisper API</option>
+              </select>
+            </div>
+
+            <div class="space-y-1">
+              <label class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                <i class="ph-bold ph-sparkle text-purple-400"></i>
+                <span>Spoken Language</span>
+              </label>
+              <select id="quickLanguageSelect" class="w-full appearance-none rounded-2xl border border-white/10 bg-zinc-900/90 px-3.5 py-3 text-xs sm:text-sm font-medium text-zinc-200 outline-none transition focus:border-rose-500">
                 <option value="auto" selected>Auto Detect (99+ Languages)</option>
                 <option value="hi">🇮🇳 Hindi (हिन्दी / देवनागरी)</option>
-                <option value="en">🇬🇧 English</option>
-                <option value="mr">Marathi (मराठी)</option>
-                <option value="bn">Bengali (বাংলা)</option>
-                <option value="ur">Urdu (اردو)</option>
-                <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
-                <option value="gu">Gujarati (ગુજરાતી)</option>
-                <option value="ta">Tamil (தமிழ்)</option>
-                <option value="te">Telugu (తెలుగు)</option>
-                <option value="es">Spanish (Español)</option>
-                <option value="fr">French (Français)</option>
-                <option value="ar">Arabic (العربية)</option>
+                <option value="en">🇺🇸 English</option>
+                <option value="es">🇪🇸 Spanish</option>
+                <option value="fr">🇫🇷 French</option>
+                <option value="de">🇩🇪 German</option>
+                <option value="mr">🇮🇳 Marathi</option>
+                <option value="ta">🇮🇳 Tamil</option>
+                <option value="te">🇮🇳 Telugu</option>
+                <option value="bn">🇮🇳 Bengali</option>
+                <option value="gu">🇮🇳 Gujarati</option>
+                <option value="pa">🇮🇳 Punjabi</option>
+                <option value="ar">🇸🇦 Arabic</option>
+                <option value="ja">🇯🇵 Japanese</option>
+                <option value="zh">🇨🇳 Chinese</option>
+                <option value="ru">🇷🇺 Russian</option>
+                <option value="pt">🇧🇷 Portuguese</option>
+                <option value="it">🇮🇹 Italian</option>
               </select>
             </div>
           </div>
-        </form>
 
-        <!-- Mode 2: Direct File Upload Form (Hidden by default) -->
-        <form id="uploadForm" class="hidden glass-card p-6 border border-white/15 shadow-2xl space-y-4 text-center">
-          <div id="dropZone" class="border-2 border-dashed border-white/20 hover:border-rose-500/50 rounded-2xl p-8 transition-colors cursor-pointer bg-slate-900/40 flex flex-col items-center justify-center gap-2">
-            <i class="ph-bold ph-cloud-arrow-up text-4xl text-rose-400 animate-bounce"></i>
-            <p class="font-semibold text-sm text-slate-200">Drag & drop your Instagram audio or video file here</p>
-            <p class="text-xs text-slate-400">Supports MP4, MP3, M4A, WAV, WebM (up to 100MB)</p>
-            <input type="file" id="fileInput" accept="video/*,audio/*" class="hidden" />
-            <button type="button" onclick="document.getElementById('fileInput').click()" class="mt-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium border border-white/10">
-              Browse Files
-            </button>
-            <p id="selectedFileName" class="hidden text-xs text-rose-300 font-mono mt-2"></p>
-          </div>
-
-          <div class="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs px-1">
-            <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
-              <input type="checkbox" id="uploadTranslateCheckbox" class="rounded bg-slate-800 border-white/20 text-rose-500 focus:ring-rose-500 focus:ring-offset-slate-900">
+          <!-- Quick Options Checkbox -->
+          <div class="flex items-center justify-between text-xs px-1">
+            <label class="flex items-center gap-2 cursor-pointer text-zinc-400 hover:text-white">
+              <input type="checkbox" id="translateToEnglishCheckbox" class="rounded bg-zinc-800 border-white/20 text-rose-500 focus:ring-rose-500">
               <span>Direct Translate to English</span>
             </label>
-            <button type="submit" id="uploadSubmitBtn" disabled class="px-6 py-2.5 rounded-xl font-semibold text-xs text-white ig-button-gradient shadow-lg opacity-50 cursor-not-allowed">
-              Upload & Transcribe
-            </button>
           </div>
+
+          <!-- Submit Button -->
+          <button 
+            type="button" 
+            id="submitBtn"
+            class="press-scale group relative flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-rose-600 via-purple-600 to-amber-500 py-3.5 sm:py-4 text-xs sm:text-sm md:text-base font-bold text-white shadow-xl shadow-rose-600/30 transition hover:opacity-95 cursor-pointer">
+            <i class="ph-bold ph-sparkle text-lg"></i>
+            <span>Generate Transcript & Subtitles</span>
+          </button>
         </form>
 
-        <div class="flex items-center justify-center gap-2 text-xs text-slate-500">
-          <span>Supported:</span>
-          <span class="text-slate-400">Reels, Posts, IGTV, and direct audio/video uploads</span>
-        </div>
+        <!-- Mode 2: Upload Form -->
+        <form id="uploadForm" class="hidden space-y-4 text-center">
+          <div id="dropZone" class="press-scale cursor-pointer rounded-2xl border-2 border-dashed border-zinc-700 bg-zinc-900/60 hover:border-zinc-500 p-6 sm:p-10 transition flex flex-col items-center justify-center gap-2">
+            <div class="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-zinc-800/80 border border-white/10 text-rose-400">
+              <i class="ph-bold ph-cloud-arrow-up text-2xl sm:text-3xl"></i>
+            </div>
+            <div>
+              <p class="font-bold text-xs sm:text-sm md:text-base text-zinc-200">Drop audio or video file here, or browse</p>
+              <p class="text-[11px] sm:text-xs text-zinc-500 mt-0.5">Supports MP4, MP3, M4A, WAV, WebM (Up to 100MB)</p>
+            </div>
+            <input type="file" id="fileInput" accept="video/*,audio/*" class="hidden" />
+            <button type="button" onclick="document.getElementById('fileInput').click()" class="mt-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-semibold border border-white/10">
+              Browse Files
+            </button>
+            <p id="selectedFileName" class="hidden text-xs text-emerald-400 font-mono mt-2"></p>
+          </div>
+
+          <div class="flex items-center justify-between text-xs px-1">
+            <label class="flex items-center gap-2 cursor-pointer text-zinc-400 hover:text-white">
+              <input type="checkbox" id="uploadTranslateCheckbox" class="rounded bg-zinc-800 border-white/20 text-rose-500 focus:ring-rose-500">
+              <span>Direct Translate to English</span>
+            </label>
+          </div>
+
+          <button type="submit" id="uploadSubmitBtn" disabled class="press-scale group relative flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-rose-600 via-purple-600 to-amber-500 py-3.5 sm:py-4 text-xs sm:text-sm md:text-base font-bold text-white shadow-xl shadow-rose-600/30 opacity-50 cursor-not-allowed">
+            <i class="ph-bold ph-sparkle text-lg"></i>
+            <span>Upload & Transcribe File</span>
+          </button>
+        </form>
+
       </div>
     </section>
 
-    <!-- Pipeline Progress Section (Hidden by default) -->
-    <section id="progressSection" class="hidden max-w-2xl mx-auto glass-card p-6 border border-white/15 animate-fade-in space-y-4">
+    <!-- Progress Indicator (Dynamic Island Bar) -->
+    <section id="progressSection" class="hidden max-w-4xl mx-auto rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 backdrop-blur-xl space-y-3">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-full border-2 border-rose-500 border-t-transparent animate-spin flex items-center justify-center"></div>
+          <div class="w-6 h-6 rounded-full border-2 border-rose-500 border-t-transparent animate-spin"></div>
           <div>
-            <h4 id="progressStatusTitle" class="font-semibold text-sm text-slate-200">Processing Audio...</h4>
-            <p id="progressStatusDesc" class="text-xs text-slate-400">Extracting high-definition audio stream</p>
+            <h4 id="progressStatusTitle" class="font-bold text-sm text-rose-400">Processing Audio...</h4>
+            <p id="progressStatusDesc" class="text-xs text-zinc-400">Extracting high-definition audio stream</p>
           </div>
         </div>
-        <span id="elapsedTimer" class="font-mono text-xs text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-md border border-rose-500/20">00:00</span>
+        <span id="elapsedTimer" class="font-mono text-xs text-rose-400 bg-rose-500/20 px-2.5 py-1 rounded-full border border-rose-500/30">00:00</span>
       </div>
 
       <div class="grid grid-cols-3 gap-2 pt-2 text-xs">
-        <div id="step1" class="p-2.5 rounded-lg bg-slate-800/80 border border-white/10 flex items-center gap-2">
-          <i class="ph-bold ph-download-simple text-slate-400 text-sm"></i>
+        <div id="step1" class="p-2.5 rounded-xl bg-zinc-900/80 border border-white/10 flex items-center gap-2">
+          <i class="ph-bold ph-download-simple text-zinc-400 text-sm"></i>
           <span>1. Audio</span>
         </div>
-        <div id="step2" class="p-2.5 rounded-lg bg-slate-800/80 border border-white/10 flex items-center gap-2">
-          <i class="ph-bold ph-waveform text-slate-400 text-sm"></i>
+        <div id="step2" class="p-2.5 rounded-xl bg-zinc-900/80 border border-white/10 flex items-center gap-2">
+          <i class="ph-bold ph-waveform text-zinc-400 text-sm"></i>
           <span>2. Whisper AI</span>
         </div>
-        <div id="step3" class="p-2.5 rounded-lg bg-slate-800/80 border border-white/10 flex items-center gap-2">
-          <i class="ph-bold ph-check-circle text-slate-400 text-sm"></i>
-          <span>3. Formatter</span>
+        <div id="step3" class="p-2.5 rounded-xl bg-zinc-900/80 border border-white/10 flex items-center gap-2">
+          <i class="ph-bold ph-check-circle text-zinc-400 text-sm"></i>
+          <span>3. Subtitles</span>
         </div>
       </div>
     </section>
 
-    <!-- Error Alert Box -->
-    <div id="errorAlert" class="hidden max-w-2xl mx-auto p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200 text-sm flex items-start gap-3">
+    <!-- Error Alert Toast -->
+    <div id="errorAlert" class="hidden max-w-4xl mx-auto p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 text-rose-200 text-xs sm:text-sm flex items-start gap-3 backdrop-blur-xl">
       <i class="ph-bold ph-warning-circle text-xl text-rose-400 mt-0.5 flex-shrink-0"></i>
       <div class="flex-1">
-        <p class="font-semibold">Request Notice</p>
+        <p class="font-semibold">Processing Notice</p>
         <p id="errorMessage" class="text-xs text-rose-300 mt-1 leading-relaxed"></p>
       </div>
       <button onclick="document.getElementById('errorAlert').classList.add('hidden')" class="text-rose-400 hover:text-white">
@@ -240,35 +287,33 @@
       </button>
     </div>
 
-    <!-- Results Section (Hidden until transcription complete) -->
-    <section id="resultsSection" class="hidden space-y-6">
-      
-      <!-- Video Metadata & Audio Player Card -->
-      <div class="glass-card p-5 border border-white/10 flex flex-col md:flex-row gap-5 items-start md:items-center justify-between">
+    <!-- Results Section -->
+    <section id="resultsSection" class="hidden max-w-5xl xl:max-w-6xl mx-auto space-y-6">
+      <!-- Media Header & Audio Scrubber -->
+      <div class="glass-panel rounded-3xl p-5 border border-white/10 flex flex-col md:flex-row gap-5 items-start md:items-center justify-between">
         <div class="flex items-center gap-4">
-          <img id="reelThumbnail" src="" alt="Thumbnail" class="w-16 h-20 sm:w-20 sm:h-24 object-cover rounded-xl border border-white/10 shadow-md bg-slate-900 flex-shrink-0">
+          <img id="reelThumbnail" src="" alt="Thumbnail" class="w-16 h-20 sm:w-20 sm:h-24 object-cover rounded-2xl border border-white/10 shadow-md bg-zinc-900 flex-shrink-0">
           <div class="space-y-1">
             <div class="flex items-center gap-2 flex-wrap">
-              <span id="reelAuthor" class="font-bold text-sm text-slate-200">@creator</span>
-              <span id="langBadge" class="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-medium border border-blue-500/30">EN</span>
-              <span id="targetLangBadge" class="hidden text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-medium border border-purple-500/30">→ ES</span>
-              <span id="durationBadge" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">00:45</span>
+              <span id="reelAuthor" class="font-bold text-sm text-white">@creator</span>
+              <span id="langBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">EN</span>
+              <span id="targetLangBadge" class="hidden text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">→ ES</span>
+              <span id="durationBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 font-mono">00:45</span>
             </div>
-            <p id="reelTitle" class="text-xs text-slate-400 line-clamp-2 max-w-lg">Reel Title / Caption</p>
-            <a id="reelLink" href="#" target="_blank" class="inline-flex items-center gap-1 text-xs text-pink-400 hover:underline">
-              <span>View Source</span>
+            <p id="reelTitle" class="text-xs text-zinc-400 line-clamp-2 max-w-lg">Reel Title / Caption</p>
+            <a id="reelLink" href="#" target="_blank" class="inline-flex items-center gap-1 text-xs text-rose-400 hover:underline">
+              <span>View Source on Instagram</span>
               <i class="ph-bold ph-arrow-square-out text-xs"></i>
             </a>
           </div>
         </div>
 
-        <!-- Integrated Audio Player -->
-        <div class="w-full md:w-80 bg-slate-900/80 p-3.5 rounded-xl border border-white/10 space-y-2">
+        <div class="w-full md:w-80 bg-zinc-900/80 p-4 rounded-2xl border border-white/10 space-y-2.5">
           <div class="flex items-center justify-between text-xs">
-            <span class="text-slate-400 flex items-center gap-1.5">
-              <i class="ph-bold ph-speaker-high text-pink-400"></i> Audio Player
+            <span class="text-zinc-400 flex items-center gap-1.5">
+              <i class="ph-bold ph-speaker-high text-rose-400"></i> Synchronized Audio
             </span>
-            <select id="playbackSpeed" class="bg-slate-800 text-slate-300 text-xs px-1.5 py-0.5 rounded border border-white/10 focus:outline-none">
+            <select id="playbackSpeed" class="bg-zinc-800 text-zinc-200 text-xs px-2 py-0.5 rounded-lg border border-white/10 outline-none">
               <option value="1">1.0x</option>
               <option value="1.25">1.25x</option>
               <option value="1.5">1.5x</option>
@@ -276,262 +321,288 @@
             </select>
           </div>
           <audio id="audioElement" preload="metadata" class="w-full h-8"></audio>
-          <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
+          <div class="flex items-center justify-between text-[11px] font-mono text-zinc-400">
             <span id="audioCurrentTime">00:00</span>
             <span id="audioTotalDuration">00:00</span>
           </div>
         </div>
       </div>
 
-      <!-- Transcript & Tabs Section -->
-      <div class="glass-card border border-white/10 overflow-hidden">
-        
+      <!-- Transcript Main Viewer Card -->
+      <div class="glass-panel rounded-3xl overflow-hidden shadow-2xl">
         <!-- Tab Navigation & Action Bar -->
-        <div class="border-b border-white/10 p-3 sm:p-4 bg-slate-950/40 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-          
-          <!-- Tabs -->
-          <div class="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-white/10 text-xs overflow-x-auto">
-            <button id="tabTimeline" class="tab-btn active px-3 py-1.5 rounded-lg font-medium text-white bg-slate-800 transition-colors flex items-center gap-1.5 whitespace-nowrap">
+        <div class="border-b border-white/10 p-3 sm:p-4 bg-zinc-950/40 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+          <!-- View Tabs -->
+          <div class="flex items-center gap-1 bg-zinc-900/80 p-1 rounded-2xl border border-white/10 text-xs overflow-x-auto">
+            <button id="tabTimeline" class="tab-btn active px-3.5 py-1.5 rounded-xl font-bold text-white bg-zinc-800 flex items-center gap-1.5 whitespace-nowrap">
               <i class="ph-bold ph-list-numbers text-rose-400"></i>
-              <span>Timestamps</span>
+              <span>Segments</span>
             </button>
-            <button id="tabText" class="tab-btn px-3 py-1.5 rounded-lg font-medium text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 whitespace-nowrap">
+            <button id="tabText" class="tab-btn px-3.5 py-1.5 rounded-xl font-bold text-zinc-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap">
               <i class="ph-bold ph-article"></i>
-              <span>Plain Text</span>
+              <span>Full Text</span>
             </button>
-            <button id="tabSummary" class="tab-btn px-3 py-1.5 rounded-lg font-medium text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 whitespace-nowrap">
-              <i class="ph-bold ph-sparkle text-yellow-400"></i>
-              <span>Summary</span>
+            <button id="tabSummary" class="tab-btn px-3.5 py-1.5 rounded-xl font-bold text-zinc-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap">
+              <i class="ph-bold ph-sparkle text-amber-400"></i>
+              <span>AI Summary</span>
             </button>
-            <button id="tabRaw" class="tab-btn px-3 py-1.5 rounded-lg font-medium text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 whitespace-nowrap">
+            <button id="tabRaw" class="tab-btn px-3.5 py-1.5 rounded-xl font-bold text-zinc-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap">
               <i class="ph-bold ph-code"></i>
-              <span>SRT/VTT</span>
+              <span>JSON / Subtitles</span>
             </button>
           </div>
 
-          <!-- Language View Switcher (Original vs English/Translated) -->
-          <div id="languageToggleContainer" class="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10 text-xs">
-            <button id="toggleOriginalBtn" class="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-medium flex items-center gap-1 transition-all">
+          <div id="languageToggleContainer" class="flex items-center gap-1 bg-zinc-900/90 p-1 rounded-2xl border border-white/10 text-xs">
+            <button id="toggleOriginalBtn" class="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-semibold flex items-center gap-1">
               <span id="origLangFlag">🇮🇳</span>
               <span>Original (<span id="origLangLabel">Hindi</span>)</span>
             </button>
-            <button id="toggleTranslatedBtn" class="hidden px-2.5 py-1 rounded-lg text-slate-400 hover:text-white font-medium flex items-center gap-1 transition-all">
+            <button id="toggleTranslatedBtn" class="hidden px-3 py-1.5 rounded-xl text-zinc-400 hover:text-white font-semibold flex items-center gap-1">
               <span>🇬🇧 English</span>
             </button>
           </div>
 
-          <!-- On-The-Fly Translation & Actions -->
           <div class="flex items-center gap-2 flex-wrap">
-            
-            <!-- Translate on the fly -->
-            <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-white/10">
+            <div class="flex items-center gap-1 bg-zinc-900 p-1 rounded-xl border border-white/10">
               <i class="ph-bold ph-translate text-rose-400 text-xs pl-1.5"></i>
-              <select id="instantTranslateSelect" class="bg-transparent text-slate-300 text-xs py-0.5 pr-1 focus:outline-none">
+              <select id="instantTranslateSelect" class="bg-transparent text-zinc-300 text-xs py-0.5 pr-1 outline-none">
                 <option value="" disabled selected>Translate into...</option>
               </select>
-              <button id="instantTranslateBtn" class="px-2 py-1 text-[11px] bg-rose-600 hover:bg-rose-500 text-white rounded font-medium transition-colors">
+              <button id="instantTranslateBtn" class="px-2.5 py-1 text-[11px] bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-bold">
                 Go
               </button>
             </div>
 
-            <!-- Keyword Search -->
-            <div class="relative flex-1 sm:w-40">
-              <i class="ph-bold ph-magnifying-glass absolute left-2.5 top-2.5 text-xs text-slate-400"></i>
+            <div class="relative flex-1 sm:w-44">
+              <i class="ph-bold ph-magnifying-glass absolute left-3 top-2.5 text-xs text-zinc-400"></i>
               <input 
                 type="text" 
-                id="searchTranscriptInput" 
-                placeholder="Search..." 
-                class="w-full bg-slate-900 border border-white/10 rounded-lg pl-7 pr-2 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                id="searchTranscriptInput"
+                placeholder="Search text..."
+                class="w-full bg-zinc-900 border border-white/10 rounded-full pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-rose-500"
               />
             </div>
 
-            <!-- Copy Button -->
-            <button id="copyTranscriptBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-white/10 flex items-center gap-1.5 transition-colors">
-              <i class="ph-bold ph-copy text-pink-400"></i>
+            <button id="copyTranscriptBtn" class="press-scale px-3 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-xs font-semibold text-zinc-200 border border-white/10 flex items-center gap-1.5">
+              <i class="ph-bold ph-copy text-rose-400"></i>
               <span id="copyBtnText">Copy</span>
             </button>
 
             <!-- Export Dropdown -->
             <div class="relative inline-block text-left">
-              <button id="exportDropdownBtn" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-medium text-white flex items-center gap-1.5 transition-colors shadow-sm">
+              <button id="exportDropdownBtn" class="press-scale px-3.5 py-1.5 rounded-full bg-white text-xs font-bold text-zinc-950 flex items-center gap-1.5 shadow-sm hover:bg-zinc-200 transition">
                 <i class="ph-bold ph-download-simple"></i>
                 <span>Export</span>
                 <i class="ph-bold ph-caret-down text-[10px]"></i>
               </button>
               
-              <div id="exportMenu" class="hidden absolute right-0 mt-2 w-44 rounded-xl bg-slate-900 border border-white/10 shadow-2xl py-1 z-50 text-xs divide-y divide-white/5">
-                <div class="py-1">
-                  <button onclick="downloadExport('srt')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center justify-between">
-                    <span>SubRip Subtitle (.srt)</span>
-                    <span class="font-mono text-[10px] text-slate-500">SRT</span>
-                  </button>
-                  <button onclick="downloadExport('vtt')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center justify-between">
-                    <span>WebVTT Subtitle (.vtt)</span>
-                    <span class="font-mono text-[10px] text-slate-500">VTT</span>
-                  </button>
-                </div>
-                <div class="py-1">
-                  <button onclick="downloadExport('txt')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center justify-between">
-                    <span>Plain Text (.txt)</span>
-                    <span class="font-mono text-[10px] text-slate-500">TXT</span>
-                  </button>
-                  <button onclick="downloadExport('markdown')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center justify-between">
-                    <span>Markdown Doc (.md)</span>
-                    <span class="font-mono text-[10px] text-slate-500">MD</span>
-                  </button>
-                  <button onclick="downloadExport('json')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center justify-between">
-                    <span>Structured JSON (.json)</span>
-                    <span class="font-mono text-[10px] text-slate-500">JSON</span>
-                  </button>
-                </div>
+              <div id="exportMenu" class="hidden absolute right-0 mt-2 w-48 rounded-2xl glass-panel p-1.5 z-50 text-xs shadow-2xl">
+                <div class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Subtitles & Documents</div>
+                <button onclick="downloadExport('srt')" class="press-scale flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800/80">
+                  <span>SubRip Subtitle</span>
+                  <span class="font-mono text-[10px] text-zinc-400">.srt</span>
+                </button>
+                <button onclick="downloadExport('vtt')" class="press-scale flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800/80">
+                  <span>WebVTT Subtitle</span>
+                  <span class="font-mono text-[10px] text-zinc-400">.vtt</span>
+                </button>
+                <button onclick="downloadExport('txt')" class="press-scale flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800/80">
+                  <span>Plain Text</span>
+                  <span class="font-mono text-[10px] text-zinc-400">.txt</span>
+                </button>
+                <button onclick="downloadExport('markdown')" class="press-scale flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800/80">
+                  <span>Markdown Doc</span>
+                  <span class="font-mono text-[10px] text-zinc-400">.md</span>
+                </button>
+                <button onclick="downloadExport('json')" class="press-scale flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800/80">
+                  <span>Structured JSON</span>
+                  <span class="font-mono text-[10px] text-zinc-400">.json</span>
+                </button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Tab Content Area -->
         <div class="p-4 sm:p-6 min-h-[300px] max-h-[550px] overflow-y-auto">
-          
-          <!-- View 1: Interactive Timestamped List -->
-          <div id="viewTimeline" class="space-y-2">
-            <!-- Segments injected dynamically via JS -->
-          </div>
-
-          <!-- View 2: Plain Text Continuous Paragraph -->
-          <div id="viewText" class="hidden text-sm sm:text-base leading-relaxed text-slate-300 space-y-4">
-            <!-- Continuous text injected dynamically -->
-          </div>
-
-          <!-- View 3: Summary & Key Takeaways -->
+          <div id="viewTimeline" class="space-y-2"></div>
+          <div id="viewText" class="hidden text-xs sm:text-sm leading-relaxed text-zinc-300 space-y-4 font-sans"></div>
           <div id="viewSummary" class="hidden space-y-4">
-            <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200">
-              <h5 class="font-semibold text-xs uppercase tracking-wider text-amber-400 mb-1 flex items-center gap-1.5">
-                <i class="ph-bold ph-sparkle"></i> Executive Summary
+            <div class="p-5 rounded-2xl bg-rose-950/20 border border-rose-500/30 text-zinc-200">
+              <h5 class="font-bold text-xs uppercase tracking-wider text-rose-400 mb-2 flex items-center gap-1.5">
+                <i class="ph-bold ph-sparkle"></i> Executive AI Summary
               </h5>
-              <p id="summaryParagraph" class="text-sm text-slate-200 leading-relaxed"></p>
+              <p id="summaryParagraph" class="text-xs sm:text-sm leading-relaxed text-zinc-300"></p>
             </div>
-
             <div class="space-y-2">
-              <h5 class="font-semibold text-xs uppercase tracking-wider text-slate-400">Key Points & Highlights</h5>
-              <ul id="keyPointsList" class="space-y-2 text-sm text-slate-300"></ul>
+              <h5 class="font-bold text-xs uppercase tracking-wider text-zinc-400">Key Points & Highlights</h5>
+              <ul id="keyPointsList" class="space-y-2 text-xs sm:text-sm text-zinc-300"></ul>
             </div>
           </div>
-
-          <!-- View 4: Raw Subtitle code viewer -->
           <div id="viewRaw" class="hidden">
-            <pre id="rawSubtitleCode" class="font-mono text-xs p-4 rounded-xl bg-slate-950 border border-white/10 text-slate-300 overflow-x-auto select-all whitespace-pre-wrap"></pre>
+            <pre id="rawSubtitleCode" class="font-mono text-xs p-4 rounded-2xl bg-zinc-950 border border-white/10 text-emerald-400 overflow-x-auto select-all whitespace-pre-wrap"></pre>
           </div>
-
         </div>
+      </div>
+    </section>
 
+    <!-- 6-Feature Showcase Grid -->
+    <div class="mx-auto w-full max-w-7xl py-8 sm:py-14">
+      <div class="text-center space-y-2.5 mb-8 sm:mb-12">
+        <h2 class="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white">
+          Built for Creators, Researchers & Developers
+        </h2>
+        <p class="text-xs sm:text-sm md:text-base text-zinc-400 max-w-xl mx-auto font-sans">
+          Industrial-strength video speech-to-text pipeline engineered with zero compromises.
+        </p>
       </div>
 
-    </section>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div class="glass-card group relative rounded-3xl p-5 sm:p-7 transition-all duration-300">
+          <div class="flex items-center justify-between">
+            <div class="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/20 to-rose-500/20 text-amber-400 shadow-lg">
+              <i class="ph-bold ph-lightning text-xl"></i>
+            </div>
+            <span class="rounded-full border border-amber-500/30 bg-zinc-900/90 px-2.5 py-0.5 text-[10px] font-bold text-amber-400">~0.5s Speed</span>
+          </div>
+          <h3 class="mt-4 font-bold text-base sm:text-lg text-white">Groq Whisper-large-v3</h3>
+          <p class="mt-2 text-xs sm:text-sm leading-relaxed text-zinc-400 font-sans">Sub-second transcription powered by LPU cloud inference with instant fallback to CPU int8 faster-whisper.</p>
+        </div>
+
+        <div class="glass-card group relative rounded-3xl p-5 sm:p-7 transition-all duration-300">
+          <div class="flex items-center justify-between">
+            <div class="flex h-11 w-11 items-center justify-center rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/20 to-rose-500/20 text-purple-400 shadow-lg">
+              <i class="ph-bold ph-translate text-xl"></i>
+            </div>
+            <span class="rounded-full border border-purple-500/30 bg-zinc-900/90 px-2.5 py-0.5 text-[10px] font-bold text-purple-400">Pure Script</span>
+          </div>
+          <h3 class="mt-4 font-bold text-base sm:text-lg text-white">Devanagari Token Priming</h3>
+          <p class="mt-2 text-xs sm:text-sm leading-relaxed text-zinc-400 font-sans">Specialized Hindi, Marathi, and Devanagari script token priming to eliminate phonetic Romanization.</p>
+        </div>
+
+        <div class="glass-card group relative rounded-3xl p-5 sm:p-7 transition-all duration-300">
+          <div class="flex items-center justify-between">
+            <div class="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-400 shadow-lg">
+              <i class="ph-bold ph-globe text-xl"></i>
+            </div>
+            <span class="rounded-full border border-emerald-500/30 bg-zinc-900/90 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">Global Reach</span>
+          </div>
+          <h3 class="mt-4 font-bold text-base sm:text-lg text-white">99+ Spoken Languages</h3>
+          <p class="mt-2 text-xs sm:text-sm leading-relaxed text-zinc-400 font-sans">Universal language detection and 1-click neural translation across European, Asian, and Indian languages.</p>
+        </div>
+
+        <div class="glass-card group relative rounded-3xl p-5 sm:p-7 transition-all duration-300">
+          <div class="flex items-center justify-between">
+            <div class="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 text-blue-400 shadow-lg">
+              <i class="ph-bold ph-subtitles text-xl"></i>
+            </div>
+            <span class="rounded-full border border-blue-500/30 bg-zinc-900/90 px-2.5 py-0.5 text-[10px] font-bold text-blue-400">5+ Formats</span>
+          </div>
+          <h3 class="mt-4 font-bold text-base sm:text-lg text-white">Multi-Format Subtitle Export</h3>
+          <p class="mt-2 text-xs sm:text-sm leading-relaxed text-zinc-400 font-sans">Instant download in SubRip (.srt), WebVTT (.vtt), Markdown (.md), Plain Text (.txt), and JSON formats.</p>
+        </div>
+
+        <div class="glass-card group relative rounded-3xl p-5 sm:p-7 transition-all duration-300">
+          <div class="flex items-center justify-between">
+            <div class="flex h-11 w-11 items-center justify-center rounded-2xl border border-rose-500/30 bg-gradient-to-br from-rose-500/20 to-pink-500/20 text-rose-400 shadow-lg">
+              <i class="ph-bold ph-waveform text-xl"></i>
+            </div>
+            <span class="rounded-full border border-rose-500/30 bg-zinc-900/90 px-2.5 py-0.5 text-[10px] font-bold text-rose-400">Interactive</span>
+          </div>
+          <h3 class="mt-4 font-bold text-base sm:text-lg text-white">Synchronized Audio Scrubbing</h3>
+          <p class="mt-2 text-xs sm:text-sm leading-relaxed text-zinc-400 font-sans">Click any timestamp segment in the transcript to jump playback to that second with real-time glowing highlights.</p>
+        </div>
+
+        <div class="glass-card group relative rounded-3xl p-5 sm:p-7 transition-all duration-300">
+          <div class="flex items-center justify-between">
+            <div class="flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-indigo-400 shadow-lg">
+              <i class="ph-bold ph-shield-check text-xl"></i>
+            </div>
+            <span class="rounded-full border border-indigo-500/30 bg-zinc-900/90 px-2.5 py-0.5 text-[10px] font-bold text-indigo-400">Clerk Auth</span>
+          </div>
+          <h3 class="mt-4 font-bold text-base sm:text-lg text-white">Clerk Session Management</h3>
+          <p class="mt-2 text-xs sm:text-sm leading-relaxed text-zinc-400 font-sans">Secure social login with Google, Apple, passkeys, and persistent user cloud history across all devices.</p>
+        </div>
+      </div>
+    </div>
 
   </main>
 
-  <!-- Settings Drawer / Modal -->
-  <div id="settingsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-    <div class="glass-card max-w-md w-full p-6 border border-white/20 shadow-2xl space-y-5 bg-slate-900">
+  <!-- Modals: Settings, History, Auth -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+    <div class="glass-panel max-w-md w-full p-6 space-y-5 rounded-3xl shadow-2xl">
       <div class="flex items-center justify-between border-b border-white/10 pb-3">
         <h3 class="font-bold text-base text-white flex items-center gap-2">
           <i class="ph-bold ph-sliders"></i> Settings & Cloud Configuration
         </h3>
-        <button id="closeSettingsBtn" class="text-slate-400 hover:text-white">
+        <button id="closeSettingsBtn" class="text-zinc-400 hover:text-white">
           <i class="ph-bold ph-x text-lg"></i>
         </button>
       </div>
-
       <div class="space-y-4 text-xs">
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Whisper Model Size</label>
-          <select id="modelSelect" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-slate-200">
-            <option value="tiny" selected>Tiny (Optimized for Render Free Tier 512MB)</option>
+          <label class="block font-semibold text-zinc-300 mb-1">Whisper Model Size</label>
+          <select id="modelSelect" class="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-zinc-200 outline-none">
+            <option value="tiny" selected>Tiny (Optimized for Render Free Tier)</option>
             <option value="base">Base (Balanced accuracy)</option>
-            <option value="small">Small (Higher accuracy)</option>
-            <option value="medium">Medium (Maximum accuracy)</option>
           </select>
         </div>
-
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Default Source Language</label>
-          <select id="languageSelect" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-slate-200">
+          <label class="block font-semibold text-zinc-300 mb-1">Default Source Language</label>
+          <select id="languageSelect" class="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-zinc-200 outline-none">
             <option value="auto" selected>Auto-detect (99+ languages)</option>
           </select>
         </div>
-
         <div class="pt-2 border-t border-white/10 space-y-2">
           <div class="flex items-center justify-between">
-            <label class="font-semibold text-slate-300">Instagram Cookies / Session ID</label>
+            <label class="font-semibold text-zinc-300">Instagram Cookies / Session ID</label>
             <span class="text-[10px] text-emerald-400">Bypasses Cloud 429</span>
           </div>
-          <input 
-            type="text" 
-            id="cookiesInput" 
-            placeholder="sessionid=6512345678%3A...; ds_user_id=12345;"
-            class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder-slate-500 font-mono text-[11px]"
-          />
-          <p class="text-[10px] text-slate-400">Paste your Instagram <code class="text-rose-400 font-mono">sessionid=...</code> to download links on Render 24/7 with zero rate limits.</p>
+          <input id="cookiesInput" type="text" placeholder="sessionid=..." class="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-zinc-200 font-mono text-[11px] outline-none" />
         </div>
-
         <div class="pt-2 border-t border-white/10 space-y-2">
           <div class="flex items-center justify-between">
-            <label class="font-semibold text-slate-300">Optional Cloud API Key</label>
-            <span class="text-[10px] text-slate-500">Instant cloud transcription</span>
+            <label class="font-semibold text-zinc-300">Optional Cloud API Key</label>
+            <span class="text-[10px] text-zinc-500">Instant cloud transcription</span>
           </div>
-          <select id="engineSelect" class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-slate-200 mb-2">
+          <select id="engineSelect" class="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-zinc-200 mb-2 outline-none">
             <option value="local" selected>Local Faster-Whisper (Free & Offline)</option>
             <option value="groq">Groq Cloud API (Instant Whisper-large-v3)</option>
-            <option value="openai">OpenAI Whisper API</option>
           </select>
-          <input 
-            type="password" 
-            id="apiKeyInput" 
-            placeholder="Enter gsk_... or sk-..."
-            class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder-slate-500"
-          />
+          <input id="apiKeyInput" type="password" placeholder="gsk_... or sk-..." class="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-zinc-200 outline-none" />
         </div>
       </div>
-
       <div class="flex justify-end gap-2 pt-2 border-t border-white/10">
-        <button id="saveSettingsBtn" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium text-xs">
+        <button id="saveSettingsBtn" class="press-scale px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-md">
           Save Preferences
         </button>
       </div>
     </div>
   </div>
 
-  <!-- History Drawer / Modal -->
-  <div id="historyModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-    <div class="glass-card max-w-lg w-full p-6 border border-white/20 shadow-2xl space-y-4 bg-slate-900">
+  <div id="historyModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+    <div class="glass-panel max-w-lg w-full p-6 space-y-4 rounded-3xl shadow-2xl">
       <div class="flex items-center justify-between border-b border-white/10 pb-3">
         <h3 class="font-bold text-base text-white flex items-center gap-2">
           <i class="ph-bold ph-clock-counter-clockwise text-pink-400"></i> Recent Transcripts
         </h3>
-        <button id="closeHistoryBtn" class="text-slate-400 hover:text-white">
+        <button id="closeHistoryBtn" class="text-zinc-400 hover:text-white">
           <i class="ph-bold ph-x text-lg"></i>
         </button>
       </div>
-
-      <div id="historyList" class="max-h-72 overflow-y-auto space-y-2 text-xs">
-        <!-- History items injected dynamically -->
-      </div>
-
+      <div id="historyList" class="max-h-72 overflow-y-auto space-y-2 text-xs"></div>
       <div class="flex justify-between items-center pt-2 border-t border-white/10 text-xs">
         <button id="clearHistoryBtn" class="text-rose-400 hover:underline">Clear History</button>
-        <button onclick="document.getElementById('historyModal').classList.add('hidden')" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200">Close</button>
+        <button onclick="document.getElementById('historyModal').classList.add('hidden')" class="px-3.5 py-1.5 rounded-xl bg-zinc-800 text-zinc-200 font-semibold">Close</button>
       </div>
     </div>
   </div>
 
-  <!-- Authentication Modal (Sign In / Sign Up) -->
-  <div id="authModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-    <div class="glass-card max-w-md w-full p-6 border border-white/20 shadow-2xl space-y-4 bg-slate-900/95 relative animate-fade-in">
-      <button id="closeAuthBtn" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+  <div id="authModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
+    <div class="glass-panel max-w-md w-full p-6 space-y-4 rounded-3xl shadow-2xl relative">
+      <button id="closeAuthBtn" class="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors">
         <i class="ph-bold ph-x text-lg"></i>
       </button>
 
-      <!-- Google Real Sign-In Container -->
       <div id="googleSignInWrapper" class="space-y-2 pt-1">
         <div id="googleBtnCustom" class="w-full">
           <button type="button" id="googleCustomBtn" class="w-full py-2.5 px-4 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-white font-medium text-xs flex items-center justify-center gap-2.5 transition-all shadow-sm cursor-pointer">
@@ -549,106 +620,70 @@
 
       <div class="flex items-center my-2">
         <div class="flex-grow border-t border-white/10"></div>
-        <span class="px-2 text-[10px] text-slate-500 uppercase tracking-wider">or continue with email</span>
+        <span class="px-2 text-[10px] text-zinc-500 uppercase tracking-wider">or continue with email</span>
         <div class="flex-grow border-t border-white/10"></div>
       </div>
 
-      <!-- Modal Header & Tabs -->
       <div class="text-center space-y-2">
-        <div class="inline-flex p-1 rounded-xl bg-slate-800/90 border border-white/10 text-xs font-semibold w-full">
+        <div class="inline-flex p-1 rounded-xl bg-zinc-900 border border-white/10 text-xs font-semibold w-full">
           <button id="authTabLogin" class="flex-1 py-2 rounded-lg bg-rose-600 text-white transition-all">
             Sign In
           </button>
-          <button id="authTabRegister" class="flex-1 py-2 rounded-lg text-slate-400 hover:text-white transition-all flex items-center justify-center gap-1">
+          <button id="authTabRegister" class="flex-1 py-2 rounded-lg text-zinc-400 hover:text-white transition-all flex items-center justify-center gap-1">
             <span>Sign Up</span>
             <span class="text-[10px] bg-amber-500/30 text-amber-300 px-1.5 py-0.2 rounded-full border border-amber-500/40">Free 10 ⚡</span>
           </button>
         </div>
       </div>
 
-      <!-- Auth Error Alert -->
-      <div id="authError" class="hidden p-3 rounded-lg bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs"></div>
+      <div id="authError" class="hidden p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs"></div>
 
-      <!-- Sign In Form -->
       <form id="loginForm" class="space-y-3 pt-1">
         <div class="space-y-1 text-xs">
-          <label class="text-slate-300 font-medium">Email Address</label>
-          <input 
-            type="email" 
-            id="loginEmail" 
-            required 
-            placeholder="you@example.com" 
-            class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
-          />
+          <label class="text-zinc-300 font-medium">Email Address</label>
+          <input type="email" id="loginEmail" required placeholder="you@example.com" class="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-zinc-200 placeholder-zinc-500 outline-none focus:border-rose-500" />
         </div>
         <div class="space-y-1 text-xs">
-          <label class="text-slate-300 font-medium">Password</label>
-          <input 
-            type="password" 
-            id="loginPassword" 
-            required 
-            placeholder="••••••••" 
-            class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
-          />
+          <label class="text-zinc-300 font-medium">Password</label>
+          <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-zinc-200 placeholder-zinc-500 outline-none focus:border-rose-500" />
         </div>
-        <button 
-          type="submit" 
-          id="loginSubmitBtn"
-          class="w-full py-2.5 rounded-xl font-semibold text-xs text-white ig-button-gradient shadow-lg flex items-center justify-center gap-2 mt-2">
+        <button type="submit" id="loginSubmitBtn" class="press-scale w-full py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-rose-600 to-purple-600 shadow-lg mt-2">
           <span>Sign In to Account</span>
         </button>
       </form>
 
-      <!-- Sign Up Form (Hidden by default) -->
       <form id="registerForm" class="hidden space-y-3 pt-1">
         <div class="space-y-1 text-xs">
-          <label class="text-slate-300 font-medium">Your Name</label>
-          <input 
-            type="text" 
-            id="registerName" 
-            placeholder="Alex" 
-            class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
-          />
+          <label class="text-zinc-300 font-medium">Your Name</label>
+          <input type="text" id="registerName" required placeholder="Anurag" class="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-zinc-200 placeholder-zinc-500 outline-none focus:border-rose-500" />
         </div>
         <div class="space-y-1 text-xs">
-          <label class="text-slate-300 font-medium">Email Address</label>
-          <input 
-            type="email" 
-            id="registerEmail" 
-            required 
-            placeholder="you@example.com" 
-            class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
-          />
+          <label class="text-zinc-300 font-medium">Email Address</label>
+          <input type="email" id="registerEmail" required placeholder="you@example.com" class="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-zinc-200 placeholder-zinc-500 outline-none focus:border-rose-500" />
         </div>
         <div class="space-y-1 text-xs">
-          <label class="text-slate-300 font-medium">Create Password</label>
-          <input 
-            type="password" 
-            id="registerPassword" 
-            required 
-            minlength="6"
-            placeholder="At least 6 characters" 
-            class="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
-          />
+          <label class="text-zinc-300 font-medium">Create Password</label>
+          <input type="password" id="registerPassword" required placeholder="Minimum 6 characters" class="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-zinc-200 placeholder-zinc-500 outline-none focus:border-rose-500" />
         </div>
-        <button 
-          type="submit" 
-          id="registerSubmitBtn"
-          class="w-full py-2.5 rounded-xl font-semibold text-xs text-white ig-button-gradient shadow-lg flex items-center justify-center gap-2 mt-2">
+        <button type="submit" id="registerSubmitBtn" class="press-scale w-full py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-rose-600 to-purple-600 shadow-lg mt-2">
           <span>Create Account & Get 10 Credits</span>
         </button>
       </form>
     </div>
   </div>
 
-  <!-- Footer -->
-  <footer class="border-t border-white/10 py-6 text-center text-xs text-slate-500 mt-12 bg-slate-950/40">
-    <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-      <p>Instagram Transcript Generator • Universal 99+ Languages & Cloud Ready</p>
-      <p class="text-slate-600">Free & Open Source</p>
+  <!-- Apple Dark Footer -->
+  <footer class="border-t border-white/10 py-6 text-center text-xs text-zinc-400 mt-12 bg-zinc-950/80 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-2 font-semibold text-zinc-200">
+        <i class="ph-fill ph-fire text-rose-500 text-base"></i>
+        <span>InstaTranscript AI &bull; Full-Stack FastAPI + Groq Whisper + Clerk</span>
+      </div>
+      <p class="text-[11px] text-zinc-400">Deployed live on Render &bull; Devanagari Hindi Token Priming &bull; MIT License</p>
     </div>
   </footer>
 
+  <!-- App Script -->
   <script src="/app.js"></script>
 </body>
 </html>
