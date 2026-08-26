@@ -30,6 +30,30 @@ def get_db():
         db.close()
 
 def init_db():
-    """Initializes all database tables."""
+    """Initializes all database tables and ensures schema migrations are applied."""
     import models  # Ensure models are registered
     Base.metadata.create_all(bind=engine)
+
+    # Safe column migration for SQLite/Postgres if existing tables lack new Clerk fields
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            # Check existing columns in users table
+            if DATABASE_URL.startswith("sqlite"):
+                cursor = conn.execute(text("PRAGMA table_info(users)"))
+                existing_cols = [row[1] for row in cursor.fetchall()]
+                if "clerk_id" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN clerk_id VARCHAR(255)"))
+                    conn.commit()
+                if "avatar_url" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500)"))
+                    conn.commit()
+            else:
+                # PostgreSQL migration
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS clerk_id VARCHAR(255)"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)"))
+                conn.commit()
+    except Exception as e:
+        # Schema is either fresh or already has columns
+        pass
+

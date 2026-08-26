@@ -3,20 +3,26 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from database import Base
 
+def get_utc_now():
+    return datetime.datetime.now(datetime.timezone.utc)
+
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    clerk_id = Column(String(255), unique=True, index=True, nullable=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)
     full_name = Column(String(255), nullable=True)
+    avatar_url = Column(String(500), nullable=True)
     tier = Column(String(50), default="free")  # "free" | "pro"
     credits = Column(Integer, default=10)      # Default 10 free credits for new users
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=get_utc_now)
+    updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now)
 
     # Relationships
     transcripts = relationship("TranscriptRecord", back_populates="owner", cascade="all, delete-orphan")
+
 
 class TranscriptRecord(Base):
     __tablename__ = "transcripts"
@@ -37,7 +43,7 @@ class TranscriptRecord(Base):
     summary = Column(Text, nullable=True)
     key_points_json = Column(Text, nullable=True)  # JSON serialized list of key points
     segments_json = Column(Text, nullable=True)    # JSON serialized list of timestamped segments
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=get_utc_now)
 
     # Relationships
     owner = relationship("User", back_populates="transcripts")

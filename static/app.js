@@ -188,8 +188,15 @@ uploadForm.addEventListener("submit", async (e) => {
   try {
     setTimeout(() => updateStep(2), 2000);
 
+    const token = await getAuthToken();
+    const headers = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch("/api/upload", {
       method: "POST",
+      headers: headers,
       body: formData
     });
 
@@ -410,7 +417,7 @@ async function handleTranscribeUrl(e) {
   try {
     stepTimeout = setTimeout(() => updateStep(2), 2000);
 
-    const token = localStorage.getItem("insta_token");
+    const token = await getAuthToken();
     const headers = { "Content-Type": "application/json" };
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
@@ -1005,11 +1012,113 @@ clearHistoryBtn.addEventListener("click", () => {
   renderHistory();
 });
 
-// --- Auth Modal & Authentication Flow ---
+// --- Unified Authentication & Clerk Integration ---
+let clerkInitialized = false;
+
+async function getAuthToken() {
+  if (clerkInitialized && window.Clerk && window.Clerk.session) {
+    try {
+      return await window.Clerk.session.getToken();
+    } catch (e) {
+      console.warn("Could not retrieve Clerk session token:", e);
+    }
+  }
+  return localStorage.getItem("insta_token") || null;
+}
+
+async function initClerk() {
+  try {
+    const res = await fetch("/api/config/auth");
+    if (!res.ok) return;
+    const cfg = await res.json();
+
+    if (!cfg.clerk_publishable_key) {
+      console.log("Clerk publishable key not set, using standalone JWT mode.");
+      return;
+    }
+
+    const script = document.getElementById("clerk-script");
+    if (script) {
+      script.setAttribute("data-clerk-publishable-key", cfg.clerk_publishable_key);
+    }
+
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      if (window.Clerk) {
+        clearInterval(interval);
+        try {
+          await window.Clerk.load();
+          clerkInitialized = true;
+
+          if (window.Clerk.user) {
+            await handleClerkUser(window.Clerk.user);
+          } else {
+            handleSignedOutUI();
+          }
+
+          window.Clerk.addListener(async ({ user }) => {
+            if (user) {
+              await handleClerkUser(user);
+            } else {
+              handleSignedOutUI();
+            }
+          });
+        } catch (err) {
+          console.warn("Error initializing Clerk SDK:", err);
+        }
+      } else if (attempts > 50) {
+        clearInterval(interval);
+      }
+    }, 100);
+  } catch (err) {
+    console.warn("Auth config check failed:", err);
+  }
+}
+
+async function handleClerkUser(clerkUser) {
+  const token = await getAuthToken();
+  if (authOpenBtn) authOpenBtn.classList.add("hidden");
+  if (userProfileBar) userProfileBar.classList.remove("hidden");
+
+  if (token) {
+    try {
+      const res = await fetch("/api/auth/me", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        currentUser = await res.json();
+        if (creditsCount) creditsCount.textContent = currentUser.credits;
+        if (userEmailLabel) {
+          userEmailLabel.textContent = currentUser.full_name || clerkUser.primaryEmailAddress?.emailAddress || "User";
+        }
+        return;
+      }
+    } catch (e) {
+      console.warn("Failed to sync Clerk user with backend:", e);
+    }
+  }
+
+  if (userEmailLabel) {
+    userEmailLabel.textContent = clerkUser.fullName || clerkUser.primaryEmailAddress?.emailAddress || "User";
+  }
+}
+
+function handleSignedOutUI() {
+  currentUser = null;
+  if (userProfileBar) userProfileBar.classList.add("hidden");
+  if (authOpenBtn) authOpenBtn.classList.remove("hidden");
+}
+
+// Auth Modal & Trigger Handlers
 if (authOpenBtn) {
   authOpenBtn.addEventListener("click", () => {
-    authError.classList.add("hidden");
-    authModal.classList.remove("hidden");
+    if (clerkInitialized && window.Clerk) {
+      window.Clerk.openSignIn();
+    } else {
+      authError.classList.add("hidden");
+      authModal.classList.remove("hidden");
+    }
   });
 }
 
@@ -1041,7 +1150,7 @@ if (authTabLogin && authTabRegister) {
   });
 }
 
-// Sign In Form Submission
+// Direct Sign In Form Submission (Fallback)
 if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1079,7 +1188,7 @@ if (loginForm) {
   });
 }
 
-// Sign Up Form Submission
+// Direct Sign Up Form Submission (Fallback)
 if (registerForm) {
   registerForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1120,20 +1229,22 @@ if (registerForm) {
 
 // Log Out Handler
 if (logoutBtn) {
-  logoutBtn.addEventListener("click", () => {
+  logoutBtn.addEventListener("click", async () => {
+    if (clerkInitialized && window.Clerk && window.Clerk.user) {
+      await window.Clerk.signOut();
+    }
     localStorage.removeItem("insta_token");
-    currentUser = null;
-    if (userProfileBar) userProfileBar.classList.add("hidden");
-    if (authOpenBtn) authOpenBtn.classList.remove("hidden");
+    handleSignedOutUI();
   });
 }
 
-// Check Authentication State on Startup
+// Check Authentication State on Startup (for local token)
 async function checkAuthState() {
   const token = localStorage.getItem("insta_token");
   if (!token) {
-    if (userProfileBar) userProfileBar.classList.add("hidden");
-    if (authOpenBtn) authOpenBtn.classList.remove("hidden");
+    if (!clerkInitialized) {
+      handleSignedOutUI();
+    }
     return;
   }
 
@@ -1150,12 +1261,103 @@ async function checkAuthState() {
       if (userEmailLabel) userEmailLabel.textContent = currentUser.full_name || currentUser.email;
     } else {
       localStorage.removeItem("insta_token");
-      currentUser = null;
-      if (userProfileBar) userProfileBar.classList.add("hidden");
-      if (authOpenBtn) authOpenBtn.classList.remove("hidden");
+      handleSignedOutUI();
     }
   } catch (err) {
     console.error("Failed to check auth state:", err);
+  }
+}
+
+// --- Google Sign-In Integration ---
+const googleCustomBtn = document.getElementById("googleCustomBtn");
+const googleBtnGsi = document.getElementById("googleBtnGsi");
+
+async function handleGoogleCredentialResponse(response) {
+  if (!response || !response.credential) return;
+
+  try {
+    authError.classList.add("hidden");
+    const res = await fetch("/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: response.credential })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || "Google authentication failed.");
+    }
+
+    localStorage.setItem("insta_token", data.access_token);
+    authModal.classList.add("hidden");
+    await checkAuthState();
+  } catch (err) {
+    authError.textContent = err.message;
+    authError.classList.remove("hidden");
+  }
+}
+
+async function initGoogleAuth() {
+  try {
+    const res = await fetch("/api/config/auth");
+    if (!res.ok) return;
+    const cfg = await res.json();
+
+    const clientId = cfg.google_client_id;
+    if (!clientId) {
+      if (googleCustomBtn) {
+        googleCustomBtn.addEventListener("click", () => {
+          if (clerkInitialized && window.Clerk) {
+            window.Clerk.openSignIn();
+          } else {
+            authError.textContent = "Google OAuth is ready on the server. Set GOOGLE_CLIENT_ID or CLERK_PUBLISHABLE_KEY in environment to enable 1-click popup.";
+            authError.classList.remove("hidden");
+          }
+        });
+      }
+      return;
+    }
+
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (window.google && window.google.accounts && window.google.accounts.id) {
+        clearInterval(interval);
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
+
+        // Render official GIS Google button
+        if (googleBtnGsi) {
+          googleBtnGsi.classList.remove("hidden");
+          if (document.getElementById("googleBtnCustom")) {
+            document.getElementById("googleBtnCustom").classList.add("hidden");
+          }
+          window.google.accounts.id.renderButton(googleBtnGsi, {
+            theme: "filled_black",
+            size: "large",
+            shape: "pill",
+            width: 320,
+            text: "continue_with"
+          });
+        }
+      } else if (attempts > 50) {
+        clearInterval(interval);
+      }
+    }, 100);
+
+    if (googleCustomBtn) {
+      googleCustomBtn.addEventListener("click", () => {
+        if (window.google && window.google.accounts && window.google.accounts.id) {
+          window.google.accounts.id.prompt();
+        }
+      });
+    }
+  } catch (err) {
+    console.warn("Google Auth setup notice:", err);
   }
 }
 
@@ -1163,3 +1365,7 @@ async function checkAuthState() {
 loadSettings();
 fetchLanguages();
 checkAuthState();
+initClerk();
+initGoogleAuth();
+
+

@@ -4,7 +4,7 @@ import socket
 import logging
 from typing import Optional, Dict, Any, List
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Response, UploadFile, File, Form, Depends
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Response, UploadFile, File, Form, Depends, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,24 +26,28 @@ from auth import (
     verify_password,
     create_access_token,
     get_current_user,
-    get_optional_user
+    get_optional_user,
+    verify_google_id_token
 )
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("instagram_transcript_app")
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Initializing database schemas...")
+    init_db()
+    yield
+
 app = FastAPI(
     title="InstaTranscript - AI Universal Video Transcriber",
     description="Extracts and transcribes audio from Instagram Reels and Posts into timestamped text with multi-format export and universal translation.",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
-
-# Initialize Database tables on startup
-@app.on_event("startup")
-def on_startup():
-    logger.info("Initializing database schemas...")
-    init_db()
 
 # Enable CORS
 app.add_middleware(
@@ -61,6 +65,9 @@ downloader = InstagramDownloader(output_dir=TEMP_DIR)
 transcriber = Transcriber(default_model=DEFAULT_WHISPER_MODEL)
 
 # --- Pydantic Schemas ---
+class GoogleAuthRequest(BaseModel):
+    credential: str = Field(..., description="Google ID Token JWT from Google Identity Services")
+
 class UserRegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6, description="Password (at least 6 characters)")
@@ -98,10 +105,79 @@ async def get_supported_languages():
     """Returns list of supported language codes and human-readable names."""
     return [{"code": k, "name": v} for k, v in SUPPORTED_LANGUAGES.items()]
 
-# --- Authentication Endpoints ---
+# --- Authentication & Config Endpoints ---
+@app.get("/api/config/auth")
+def get_auth_config():
+    """Provides frontend with public Clerk and Google OAuth configuration."""
+    clerk_pub_key = getattr(config, "CLERK_PUBLISHABLE_KEY", "") or os.getenv("CLERK_PUBLISHABLE_KEY", "")
+    google_client_id = getattr(config, "GOOGLE_CLIENT_ID", "") or os.getenv("GOOGLE_CLIENT_ID", "")
+    return {
+        "clerk_publishable_key": clerk_pub_key,
+        "clerk_enabled": bool(clerk_pub_key),
+        "google_client_id": google_client_id,
+        "google_enabled": bool(google_client_id)
+    }
+
+@app.post("/api/auth/google")
+def google_auth(req: GoogleAuthRequest, db: Session = Depends(get_db)):
+    """
+    Authenticates user using real Google Sign-In ID Token.
+    Automatically links by email or JIT-provisions new user with 10 free credits.
+    """
+    google_data = verify_google_id_token(req.credential)
+    if not google_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired Google credential token."
+        )
+
+    google_sub = google_data.get("sub")
+    email = google_data.get("email", "").lower().strip()
+    full_name = google_data.get("name") or email.split("@")[0]
+    picture = google_data.get("picture")
+
+    # 1. Lookup user by email
+    user = db.query(User).filter(User.email == email).first()
+    if user:
+        if not user.clerk_id and google_sub:
+            user.clerk_id = f"google_{google_sub}"
+        if picture and not user.avatar_url:
+            user.avatar_url = picture
+        db.commit()
+        db.refresh(user)
+    else:
+        # 2. JIT Create new user with 10 free credits
+        user = User(
+            clerk_id=f"google_{google_sub}",
+            email=email,
+            full_name=full_name,
+            avatar_url=picture,
+            tier="free",
+            credits=10
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    token = create_access_token({"sub": user.email, "uid": user.id})
+    return {
+        "status": "success",
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "avatar_url": user.avatar_url,
+            "tier": user.tier,
+            "credits": user.credits
+        }
+    }
+
+
 @app.post("/api/auth/register")
 def register_user(req: UserRegisterRequest, db: Session = Depends(get_db)):
-    """Registers a new user account with 10 free credits."""
+    """Registers a new user account with 10 free credits (legacy direct signup)."""
     existing = db.query(User).filter(User.email == req.email.lower().strip()).first()
     if existing:
         raise HTTPException(status_code=400, detail="An account with this email already exists.")
@@ -134,9 +210,9 @@ def register_user(req: UserRegisterRequest, db: Session = Depends(get_db)):
 
 @app.post("/api/auth/login")
 def login_user(req: UserLoginRequest, db: Session = Depends(get_db)):
-    """Authenticates user and returns JWT token."""
+    """Authenticates user and returns JWT token (legacy direct login)."""
     user = db.query(User).filter(User.email == req.email.lower().strip()).first()
-    if not user or not verify_password(req.password, user.password_hash):
+    if not user or not user.password_hash or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
 
     token = create_access_token({"sub": user.email, "uid": user.id})
@@ -155,15 +231,18 @@ def login_user(req: UserLoginRequest, db: Session = Depends(get_db)):
 
 @app.get("/api/auth/me")
 def get_me(current_user: User = Depends(get_current_user)):
-    """Returns current authenticated user profile & remaining credits."""
+    """Returns current authenticated user profile, avatar, remaining credits & tier."""
     return {
         "id": current_user.id,
+        "clerk_id": current_user.clerk_id,
         "email": current_user.email,
         "full_name": current_user.full_name,
+        "avatar_url": current_user.avatar_url,
         "tier": current_user.tier,
         "credits": current_user.credits,
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None
     }
+
 
 # --- Cloud History Endpoints ---
 @app.get("/api/user/history")

@@ -25,3 +25,14 @@ PORT = int(os.getenv("PORT", 8000))
 AUDIO_CODEC = "mp3"
 AUDIO_BITRATE = "128k"
 AUDIO_SAMPLE_RATE = 16000  # Optimal for Whisper
+
+# Clerk & JWT & Google Authentication Settings
+CLERK_PUBLISHABLE_KEY = os.getenv("CLERK_PUBLISHABLE_KEY", "")
+CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY", "")
+CLERK_ISSUER = os.getenv("CLERK_ISSUER", "")
+CLERK_JWKS_URL = os.getenv("CLERK_JWKS_URL", "")
+CLERK_WEBHOOK_SECRET = os.getenv("CLERK_WEBHOOK_SECRET", "")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "instatranscript-super-secret-production-key-2026")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+
+

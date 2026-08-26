@@ -11,3 +11,7 @@ htmlcov/
 env/
 venv/
 *.log
+*.db
+*.sqlite
+*.sqlite3
+tests/*.png
