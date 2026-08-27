@@ -2,7 +2,8 @@
 <html lang="en" class="dark bg-[#09090b]">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#09090b">
   <title>InstaTranscript AI — Instagram Video Speech-to-Text & Subtitles</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="alternate icon" type="image/png" href="/logo.png">
@@ -21,7 +22,7 @@
 <body class="bg-[#09090b] text-zinc-100 min-h-screen flex flex-col font-sans selection:bg-rose-500/30 selection:text-rose-200">
 
   <!-- Apple Frosted Glass Navbar -->
-  <header class="sticky top-0 z-40 w-full border-b border-white/10 bg-zinc-950/80 backdrop-blur-2xl">
+  <header class="load-drop sticky top-0 z-40 w-full border-b border-white/10 bg-zinc-950/80 backdrop-blur-2xl">
     <div class="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-3 sm:px-6 lg:px-8">
       <!-- Brand Logo -->
       <a href="/" class="group flex items-center gap-2.5 rounded-2xl p-1 transition press-scale">
@@ -93,22 +94,22 @@
       <div class="pointer-events-none absolute -top-16 left-1/2 -z-10 h-[300px] sm:h-[400px] w-[95vw] max-w-[800px] -translate-x-1/2 rounded-full bg-gradient-to-tr from-rose-600/20 via-purple-600/20 to-amber-500/20 blur-[80px]"></div>
 
       <div class="text-center space-y-3 sm:space-y-4 mb-6 sm:mb-8 px-2">
-        <div class="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-3.5 py-1 text-[11px] sm:text-xs font-semibold text-rose-400 backdrop-blur-xl shadow-inner">
+        <div class="load-in inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-3.5 py-1 text-[11px] sm:text-xs font-semibold text-rose-400 backdrop-blur-xl shadow-inner" style="--ld:80ms">
           <i class="ph-bold ph-sparkle text-rose-400 animate-pulse"></i>
           <span>Devanagari Token Priming &bull; 99+ Languages</span>
         </div>
 
-        <h1 class="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white leading-[1.12]">
+        <h1 class="load-in text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white leading-[1.12]" style="--ld:150ms">
           Extract Instagram Audio & Text <span class="bg-gradient-to-r from-rose-500 via-purple-500 to-amber-400 bg-clip-text text-transparent">Instantly.</span>
         </h1>
 
-        <p class="mx-auto max-w-xl text-xs sm:text-sm md:text-base text-zinc-400 leading-relaxed font-sans">
+        <p class="load-in mx-auto max-w-xl text-xs sm:text-sm md:text-base text-zinc-400 leading-relaxed font-sans" style="--ld:220ms">
           FastAPI + Groq Whisper-large-v3 pipeline. Supports Instagram Reels, Posts, and direct MP4/MP3 audio uploads with timestamped subtitle export.
         </p>
       </div>
 
       <!-- Main Input Card (Apple Glass Panel) -->
-      <div class="glass-panel rounded-3xl p-5 sm:p-8 shadow-2xl transition-all duration-300">
+      <div class="glass-panel load-in rounded-3xl p-5 sm:p-8 shadow-2xl transition-all duration-300" style="--ld:300ms">
         
         <!-- Apple Segmented Control -->
         <div class="flex justify-center mb-6">
@@ -447,7 +448,7 @@
 
     <!-- 6-Feature Showcase Grid -->
     <div class="mx-auto w-full max-w-7xl py-8 sm:py-14">
-      <div class="text-center space-y-2.5 mb-8 sm:mb-12">
+      <div class="reveal text-center space-y-2.5 mb-8 sm:mb-12">
         <h2 class="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white">
           Built for Creators, Researchers & Developers
         </h2>
@@ -456,7 +457,7 @@
         </p>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div class="feature-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         <div class="glass-card group relative rounded-3xl p-5 sm:p-7 transition-all duration-300">
           <div class="flex items-center justify-between">
             <div class="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/20 to-rose-500/20 text-amber-400 shadow-lg">

@@ -64,28 +64,20 @@ body {
               box-shadow 200ms ease;
 }
 
-.glass-card:hover {
-  background: rgba(30, 30, 40, 0.8);
-  border-color: rgba(244, 63, 94, 0.4);
-  transform: translateY(-3px);
-  box-shadow: 0 20px 40px -10px rgba(244, 63, 94, 0.15),
-              inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
-}
+/* Touch devices fire phantom hovers on tap — motion hovers are pointer-mouse-only */
+@media (hover: hover) and (pointer: fine) {
+  .glass-card:hover {
+    background: rgba(30, 30, 40, 0.8);
+    border-color: rgba(244, 63, 94, 0.4);
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px -10px rgba(244, 63, 94, 0.15),
+                inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+  }
 
-.ig-badge-gradient {
-  background: var(--ig-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.ig-button-gradient {
-  background: var(--ig-gradient);
-  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), opacity 160ms ease, box-shadow 160ms ease;
-}
-
-.ig-button-gradient:hover {
-  opacity: 0.95;
-  box-shadow: 0 12px 30px -6px rgba(244, 63, 94, 0.4);
+  .ig-button-gradient:hover {
+    opacity: 0.95;
+    box-shadow: 0 12px 30px -6px rgba(244, 63, 94, 0.4);
+  }
 }
 
 .ig-button-gradient:active {
@@ -127,4 +119,102 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.35);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOTION SYSTEM — extends existing --ease-apple token (no forks)
+   Rules: ease-out entrances · transform/opacity only · ≤300ms UI
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-slow: 420ms;
+  --dur-entrance: 560ms;
+}
+
+/* iPhone/touch polish: remove gray tap flash */
+a, button, select, input, textarea, label {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Keyboard focus floor (inputs keep their rose focus border) */
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid rgba(244, 63, 94, 0.75);
+  outline-offset: 2px;
+}
+
+/* ── 1) Page-load orchestration (rare/first-time delight budget) ── */
+@keyframes load-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes load-drop {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+.load-drop {
+  animation: load-drop var(--dur-slow) var(--ease-apple) backwards;
+}
+.load-in {
+  animation: load-rise var(--dur-entrance) var(--ease-apple) backwards;
+  animation-delay: var(--ld, 0ms);
+}
+
+/* ── 2) Scroll-reveal — transition-based (interruptible, retargets) ── */
+.reveal {
+  transition-property: opacity, transform;
+  transition-duration: var(--dur-slow);
+  transition-timing-function: var(--ease-apple);
+}
+.reveal:not(.in-view) {
+  opacity: 0;
+  transform: translateY(18px);
+  transition-delay: var(--rd, 0ms); /* stagger applies to entrance only */
+}
+.reveal.in-view {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── 3) Modals: display:none→flex restarts these on every open ── */
+@keyframes overlay-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modal-pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+#settingsModal:not(.hidden),
+#historyModal:not(.hidden),
+#authModal:not(.hidden) {
+  animation: overlay-fade 180ms ease-out both;
+}
+#settingsModal:not(.hidden) > .glass-panel,
+#historyModal:not(.hidden) > .glass-panel,
+#authModal:not(.hidden) > .glass-panel {
+  animation: modal-pop var(--dur-base) var(--ease-apple) both;
+}
+
+/* ── 4) Section swaps: results / progress / errors fade-rise on show ── */
+#resultsSection:not(.hidden),
+#progressSection:not(.hidden),
+#errorAlert:not(.hidden),
+#authError:not(.hidden) {
+  animation: load-rise 320ms var(--ease-apple) both;
+}
+
+/* ── 5) Reduced motion: gentler, near-instant — never fully broken ── */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
 }

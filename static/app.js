@@ -1368,4 +1368,30 @@ checkAuthState();
 initClerk();
 initGoogleAuth();
 
+/* ===== Motion: scroll-reveal orchestration (design pass) ===== */
+(function () {
+  // Feature-grid cards get reveal class + 70ms stagger (capped at 350ms)
+  document.querySelectorAll(".feature-grid > .glass-card").forEach((el, i) => {
+    el.classList.add("reveal");
+    el.style.setProperty("--rd", `${Math.min(i * 70, 350)}ms`);
+  });
+
+  const all = document.querySelectorAll(".reveal");
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce || !("IntersectionObserver" in window)) {
+    all.forEach((el) => el.classList.add("in-view"));
+    return;
+  }
+  const io = new IntersectionObserver(
+    (entries) => entries.forEach((e) => {
+      if (e.isIntersecting) {
+        e.target.classList.add("in-view");
+        io.unobserve(e.target);
+      }
+    }),
+    { threshold: 0.12, rootMargin: "0px 0px -48px 0px" }
+  );
+  all.forEach((el) => io.observe(el));
+})();
+
 
