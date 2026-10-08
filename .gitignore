@@ -15,3 +15,8 @@ venv/
 *.sqlite
 *.sqlite3
 tests/*.png
+
+# secrets
+cookies.txt
+*.cookies
+.env
